@@ -1,0 +1,26 @@
+# Source - only compiled dist/ ships
+src/
+test/
+scripts/
+credentials/
+nodes/
+
+# Tooling
+.github/
+.editorconfig
+.npmrc
+.prettierrc.js
+eslint.config.mjs
+tsconfig.json
+vitest.config.ts
+*.tsbuildinfo
+
+# Repo-only docs
+CHANGELOG.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+
+# Build and dev artifacts
+node_modules/
+*.tgz
+.DS_Store

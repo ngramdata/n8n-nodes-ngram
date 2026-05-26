@@ -1,0 +1,38 @@
+{
+  "name": "Ngram → Post to Slack when any video is ready",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1f0c0e0-0000-4000-8000-000000000001",
+      "name": "Ngram: On Video Ready",
+      "type": "n8n-nodes-ngram.ngramTriggerCompleted",
+      "typeVersion": 1,
+      "position": [260, 300],
+      "credentials": {
+        "ngramApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Ngram API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $env.SLACK_CHANNEL ?? '#video-drops' }}",
+        "text": "=New Ngram video ready: {{ $json.video_url }} (id: {{ $json.id }})"
+      },
+      "id": "a1f0c0e0-0000-4000-8000-000000000002",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [520, 300]
+    }
+  ],
+  "connections": {
+    "Ngram: On Video Ready": {
+      "main": [[{ "node": "Post to Slack", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {},
+  "tags": ["ngram", "video"]
+}

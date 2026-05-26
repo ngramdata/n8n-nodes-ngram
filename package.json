@@ -1,0 +1,55 @@
+{
+	"name": "n8n-nodes-ngram",
+	"version": "0.1.2",
+	"description": "n8n community node for the Ngram public API: create videos, watch for completion, and look up video status from n8n workflows.",
+	"keywords": [
+		"n8n-community-node-package",
+		"ngram",
+		"video",
+		"ai"
+	],
+	"license": "MIT",
+	"homepage": "https://www.ngram.com",
+	"author": "Ngram <hello@ngram.com>",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/ngramdata/n8n-nodes-ngram.git"
+	},
+	"bugs": {
+		"url": "https://github.com/ngramdata/n8n-nodes-ngram/issues"
+	},
+	"files": [
+		"dist",
+		"icons"
+	],
+	"scripts": {
+		"build": "tsc && node scripts/copy-icons.mjs",
+		"dev": "tsc --watch",
+		"lint": "eslint nodes credentials src",
+		"lint:fix": "eslint nodes credentials src --fix",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	},
+	"devDependencies": {
+		"@n8n/node-cli": "^0.3.0",
+		"@types/node": "^22.19.11",
+		"eslint": "^9.39.4",
+		"n8n-workflow": "^1.82.0",
+		"typescript": "^5.9.3",
+		"vitest": "^4.1.0"
+	},
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"credentials": [
+			"dist/credentials/NgramApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/Ngram/Ngram.node.js",
+			"dist/nodes/NgramTriggerCompleted/NgramTriggerCompleted.node.js",
+			"dist/nodes/NgramTriggerFailed/NgramTriggerFailed.node.js"
+		]
+	}
+}
