@@ -130,7 +130,7 @@ const account = await httpRequestWithAuthentication('ngramApi', {
 	method: 'GET',
 	url: `${BASE}/api/v1/account`,
 });
-record('GET /api/v1/account', 'pass', `account=${account.data.email}`);
+record('GET /api/v1/account', 'pass', 'authenticated');
 
 // --- 3. /config + every loadOptions hydration -------------------------------
 const node = new ngramNode.Ngram();
