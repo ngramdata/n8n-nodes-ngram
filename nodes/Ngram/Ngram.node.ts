@@ -122,6 +122,7 @@ export class Ngram implements INodeType {
 		icon: 'file:../../icons/ngram.svg',
 		group: ['transform'],
 		version: 1,
+		usableAsTool: true,
 		subtitle: '={{ $parameter["operation"] }}: {{ $parameter["resource"] }}',
 		description: 'Create videos and look up video status from the Ngram public API.',
 		defaults: {
@@ -346,10 +347,10 @@ export class Ngram implements INodeType {
 				name: 'aspect_ratio',
 				type: 'options',
 				options: [
-					{ name: 'Use API Default', value: '' },
+					{ name: '1:1', value: '1:1' },
 					{ name: '16:9', value: '16:9' },
 					{ name: '9:16', value: '9:16' },
-					{ name: '1:1', value: '1:1' },
+					{ name: 'Use API Default', value: '' },
 				],
 				// Empty default preserves parity with Make/Zapier: aspect_ratio is
 				// optional, and an unset field is stripped by stripEmptyBodyFields

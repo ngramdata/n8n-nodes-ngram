@@ -1,4 +1,5 @@
 import {
+	NodeConnectionTypes,
 	type INodeType,
 	type INodeTypeDescription,
 	type IWebhookFunctions,
@@ -13,13 +14,14 @@ export class NgramTriggerCompleted implements INodeType {
 		icon: 'file:../../icons/ngram.svg',
 		group: ['trigger'],
 		version: 1,
+		usableAsTool: true,
 		subtitle: 'video.completed',
 		description: 'Starts a workflow when an Ngram video finishes rendering.',
 		defaults: {
 			name: 'Ngram: On Video Ready',
 		},
 		inputs: [],
-		outputs: ['main'],
+		outputs: [NodeConnectionTypes.Main],
 		credentials: [
 			{
 				name: 'ngramApi',
