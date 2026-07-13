@@ -17,7 +17,15 @@
     },
     {
       "parameters": {
-        "channel": "={{ $env.SLACK_CHANNEL ?? '#video-drops' }}",
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#video-drops",
+          "mode": "name"
+        },
+        "messageType": "text",
         "text": "=New Ngram video ready: {{ $json.video_url }} (id: {{ $json.id }})"
       },
       "id": "a1f0c0e0-0000-4000-8000-000000000002",

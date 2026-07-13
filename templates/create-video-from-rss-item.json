@@ -1,0 +1,52 @@
+{
+  "name": "RSS item -> Create Ngram video",
+  "nodes": [
+    {
+      "parameters": {
+        "feedUrl": "https://www.ngram.com/blog/rss.xml",
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyHour"
+            }
+          ]
+        }
+      },
+      "id": "a1f0c0e0-0000-4000-8000-000000000021",
+      "name": "New RSS Item",
+      "type": "n8n-nodes-base.rssFeedReadTrigger",
+      "typeVersion": 1,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "createFromUrl",
+        "website_url": "={{ $json.link }}",
+        "prompt": "=Turn this article into a concise product or thought-leadership video: {{ $json.title }}",
+        "aspect_ratio": "9:16",
+        "duration": 30,
+        "deep_research": true
+      },
+      "id": "a1f0c0e0-0000-4000-8000-000000000022",
+      "name": "Create Ngram Video",
+      "type": "n8n-nodes-ngram.ngram",
+      "typeVersion": 1,
+      "position": [540, 300],
+      "credentials": {
+        "ngramApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Ngram API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New RSS Item": {
+      "main": [[{ "node": "Create Ngram Video", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {},
+  "tags": ["ngram", "video", "rss"]
+}

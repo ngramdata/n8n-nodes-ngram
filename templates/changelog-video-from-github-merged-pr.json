@@ -1,0 +1,82 @@
+{
+  "name": "Create a changelog video for every merged GitHub PR",
+  "nodes": [
+    {
+      "parameters": {
+        "owner": {
+          "__rl": true,
+          "value": "REPLACE_WITH_OWNER",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "REPLACE_WITH_REPOSITORY",
+          "mode": "name"
+        },
+        "events": ["pull_request"]
+      },
+      "id": "a1f0c0e0-0000-4000-8000-000000000071",
+      "name": "GitHub Pull Request Event",
+      "type": "n8n-nodes-base.githubTrigger",
+      "typeVersion": 1,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.pull_request?.merged }}",
+              "value2": true
+            }
+          ],
+          "string": [
+            {
+              "value1": "={{ $json.action }}",
+              "operation": "equals",
+              "value2": "closed"
+            }
+          ]
+        }
+      },
+      "id": "a1f0c0e0-0000-4000-8000-000000000072",
+      "name": "Only Merged PRs",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "createFromText",
+        "prompt": "=Create a concise changelog video for this merged pull request.\n\nTitle: {{ $json.pull_request?.title }}\nAuthor: {{ $json.pull_request?.user?.login }}\nSummary: {{ $json.pull_request?.body ?? 'No PR description provided' }}\nURL: {{ $json.pull_request?.html_url }}",
+        "aspect_ratio": "16:9",
+        "duration": 30,
+        "scenario": "changelog",
+        "deep_research": false
+      },
+      "id": "a1f0c0e0-0000-4000-8000-000000000073",
+      "name": "Create Ngram Video",
+      "type": "n8n-nodes-ngram.ngram",
+      "typeVersion": 1,
+      "position": [820, 220],
+      "credentials": {
+        "ngramApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Ngram API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "GitHub Pull Request Event": {
+      "main": [[{ "node": "Only Merged PRs", "type": "main", "index": 0 }]]
+    },
+    "Only Merged PRs": {
+      "main": [[{ "node": "Create Ngram Video", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {},
+  "tags": ["ngram", "video", "github"]
+}

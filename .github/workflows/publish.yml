@@ -1,12 +1,21 @@
 name: Publish
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - package-lock.json
   release:
     types: [published]
 
 permissions:
   contents: read
   id-token: write
+
+concurrency:
+  group: publish-npm
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -19,7 +28,9 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-          cache: npm
+
+      - name: Use npm with trusted publishing support
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm ci
@@ -39,5 +50,23 @@ jobs:
       - name: Check package contents
         run: npm pack --dry-run
 
+      - name: Check whether package version is already published
+        id: publish-check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          package_name="$(node -p "require('./package.json').name")"
+          package_version="$(node -p "require('./package.json').version")"
+
+          if npm view "${package_name}@${package_version}" version >/dev/null 2>&1; then
+            echo "Package ${package_name}@${package_version} is already published."
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Package ${package_name}@${package_version} is not published yet."
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish with provenance
+        if: steps.publish-check.outputs.should_publish == 'true'
         run: npm publish --provenance --access public

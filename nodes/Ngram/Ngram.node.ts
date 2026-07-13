@@ -124,7 +124,7 @@ export class Ngram implements INodeType {
 		version: 1,
 		usableAsTool: true,
 		subtitle: '={{ $parameter["operation"] }}: {{ $parameter["resource"] }}',
-		description: 'Create videos and look up video status from the Ngram public API.',
+		description: 'Generate AI videos from prompts, text, and URLs, then check render status.',
 		defaults: {
 			name: 'Ngram',
 		},
@@ -160,30 +160,6 @@ export class Ngram implements INodeType {
 				displayOptions: { show: { resource: ['video'] } },
 				options: [
 					{
-						name: 'Create',
-						value: 'create',
-						action: 'Create a video',
-						description:
-							'Submit a new video job. Returns immediately; chain the "On Video Ready" trigger or Get Status for the final URL.',
-						routing: {
-							request: {
-								method: 'POST',
-								url: '/api/v1/videos',
-							},
-							send: {
-								preSend: [stripEmptyBodyFields],
-							},
-							output: {
-								postReceive: [
-									{
-										type: 'rootProperty',
-										properties: { property: 'data' },
-									},
-								],
-							},
-						},
-					},
-					{
 						name: 'Create From Text',
 						value: 'createFromText',
 						action: 'Create a video from text',
@@ -217,6 +193,30 @@ export class Ngram implements INodeType {
 							request: {
 								method: 'POST',
 								url: '/api/v1/videos:fromUrl',
+							},
+							send: {
+								preSend: [stripEmptyBodyFields],
+							},
+							output: {
+								postReceive: [
+									{
+										type: 'rootProperty',
+										properties: { property: 'data' },
+									},
+								],
+							},
+						},
+					},
+					{
+						name: 'Create Video',
+						value: 'create',
+						action: 'Create a video',
+						description:
+							'Submit a video brief with optional brand context. Returns immediately; chain the "On Video Ready" trigger or Get Status for the final URL.',
+						routing: {
+							request: {
+								method: 'POST',
+								url: '/api/v1/videos',
 							},
 							send: {
 								preSend: [stripEmptyBodyFields],
@@ -292,7 +292,7 @@ export class Ngram implements INodeType {
 				name: 'website_url',
 				type: 'string',
 				default: '',
-				description: 'Optional brand context used for research',
+				description: 'Optional website Ngram can use for brand, product, or company context',
 				displayOptions: {
 					show: { resource: ['video'], operation: ['create'] },
 				},
@@ -304,7 +304,7 @@ export class Ngram implements INodeType {
 				type: 'string',
 				required: true,
 				default: '',
-				description: 'Page Ngram should research and turn into a video',
+				description: 'Page, article, product page, or doc Ngram should research and turn into a video',
 				displayOptions: {
 					show: { resource: ['video'], operation: ['createFromUrl'] },
 				},
@@ -465,7 +465,8 @@ export class Ngram implements INodeType {
 				type: 'string',
 				typeOptions: { rows: 3 },
 				default: '',
-				description: 'Freeform narrative direction. Max 1024 characters.',
+				description:
+					'Optional narrative direction, such as hook, proof points, call to action, or tone. Max 1024 characters.',
 				displayOptions: {
 					show: {
 						resource: ['video'],
@@ -479,6 +480,8 @@ export class Ngram implements INodeType {
 				name: 'deep_research',
 				type: 'boolean',
 				default: false,
+				description:
+					'Whether to let Ngram spend more time researching source material before generating the video',
 				displayOptions: {
 					show: {
 						resource: ['video'],
