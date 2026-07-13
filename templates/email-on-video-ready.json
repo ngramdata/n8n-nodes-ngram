@@ -1,0 +1,41 @@
+{
+  "name": "Email me when my Ngram video is ready",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1f0c0e0-0000-4000-8000-000000000031",
+      "name": "Ngram: On Video Ready",
+      "type": "n8n-nodes-ngram.ngramTriggerCompleted",
+      "typeVersion": 1,
+      "position": [260, 300],
+      "credentials": {
+        "ngramApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Ngram API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "you@example.com",
+        "subject": "=Ngram video ready: {{ $json.id }}",
+        "message": "=Your Ngram video is ready.\n\nVideo URL: {{ $json.video_url ?? $json.result?.video_url ?? $json.url }}\nJob ID: {{ $json.id }}"
+      },
+      "id": "a1f0c0e0-0000-4000-8000-000000000032",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [540, 300]
+    }
+  ],
+  "connections": {
+    "Ngram: On Video Ready": {
+      "main": [[{ "node": "Send Email", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {},
+  "tags": ["ngram", "video", "gmail"]
+}

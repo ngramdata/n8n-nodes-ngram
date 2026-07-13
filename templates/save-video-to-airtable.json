@@ -1,0 +1,57 @@
+{
+  "name": "Save finished Ngram videos to Airtable",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1f0c0e0-0000-4000-8000-000000000041",
+      "name": "Ngram: On Video Ready",
+      "type": "n8n-nodes-ngram.ngramTriggerCompleted",
+      "typeVersion": 1,
+      "position": [260, 300],
+      "credentials": {
+        "ngramApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Ngram API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "record",
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "REPLACE_WITH_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Videos",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Video ID": "={{ $json.id }}",
+            "Status": "={{ $json.status ?? 'completed' }}",
+            "Video URL": "={{ $json.video_url ?? $json.result?.video_url ?? $json.url }}",
+            "Completed At": "={{ $now.toISO() }}"
+          }
+        }
+      },
+      "id": "a1f0c0e0-0000-4000-8000-000000000042",
+      "name": "Create Airtable Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [540, 300]
+    }
+  ],
+  "connections": {
+    "Ngram: On Video Ready": {
+      "main": [[{ "node": "Create Airtable Record", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {},
+  "tags": ["ngram", "video", "airtable"]
+}

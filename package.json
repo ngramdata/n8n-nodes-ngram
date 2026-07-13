@@ -1,12 +1,15 @@
 {
 	"name": "n8n-nodes-ngram",
-	"version": "0.1.4",
-	"description": "n8n community node for the Ngram public API: create videos, watch for completion, and look up video status from n8n workflows.",
+	"version": "0.1.5",
+	"description": "Generate polished AI videos from prompts, URLs, docs, and product content in n8n workflows.",
 	"keywords": [
 		"n8n-community-node-package",
 		"ngram",
-		"video",
-		"ai"
+		"ai-video",
+		"video-generation",
+		"marketing-automation",
+		"content-automation",
+		"workflow-automation"
 	],
 	"license": "MIT",
 	"homepage": "https://www.ngram.com",
@@ -23,7 +26,8 @@
 	},
 	"files": [
 		"dist",
-		"icons"
+		"icons",
+		"templates"
 	],
 	"scripts": {
 		"build": "tsc && node scripts/copy-icons.mjs",

@@ -5,22 +5,31 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
 Official [Ngram](https://www.ngram.com) community node for [n8n](https://n8n.io).
-Generate AI videos, look up their status, and react to completion events from
-n8n workflows.
+Generate polished AI videos from prompts, text, URLs, docs, and product content,
+then automate follow-up workflows when renders are ready or fail.
 
 This is an [n8n community node](https://docs.n8n.io/integrations/community-nodes/).
 It lets you use Ngram in your n8n workflows.
 
 ## Features
 
-- **Action - Create Video**: start an Ngram video render from any workflow.
+- **Action - Create Video**: start an Ngram video render with optional brand context.
+- **Action - Create From Text**: turn a prompt or source text into a video.
+- **Action - Create From URL**: research a page, article, product page, or doc and create a video.
 - **Action - Get Status**: check a submitted job by id.
 - **Trigger - On Video Ready**: receive `video.completed` webhook events.
 - **Trigger - On Video Failed**: receive `video.failed` webhook events.
 
 ## Installation
 
-Follow the [n8n community node installation guide](https://docs.n8n.io/integrations/community-nodes/installation/).
+Follow the [n8n verified community node installation guide](https://docs.n8n.io/integrations/community-nodes/installation-and-management/install-verified-community-nodes/).
+
+### n8n Cloud
+
+1. Open the **nodes panel** from the canvas.
+2. Search for **Ngram**.
+3. Select the verified community node and install it for your instance.
+4. Add your **Ngram API** credential before running workflows.
 
 ### Self-hosted n8n
 
@@ -37,16 +46,6 @@ docker exec -u node <your-n8n-container> sh -c "
 "
 docker restart <your-n8n-container>
 ```
-
-If the package is still on the `beta` dist-tag, install
-`n8n-nodes-ngram@beta` instead.
-
-### n8n Cloud
-
-n8n Cloud support is available after the node is verified through the
-[n8n Creator Portal](https://creators.n8n.io). Until verification is complete,
-Cloud users can use the [Make](https://www.ngram.com/docs/integrations/make)
-or [Zapier](https://www.ngram.com/docs/integrations/zapier) integrations.
 
 ## Credentials
 
@@ -67,7 +66,9 @@ Use the credential **Test** button to verify access. It calls
 | Operation | Required inputs | Returns |
 | --- | --- | --- |
 | `Create Video` | `prompt` | Job descriptor including `id` and status |
-| `Get Status` | `id` returned by `Create Video` | Current status and output URLs when ready |
+| `Create From Text` | `prompt` | Job descriptor including `id` and status |
+| `Create From URL` | `website_url` | Job descriptor including `id` and status |
+| `Get Status` | `id` returned by a create operation | Current status and output URLs when ready |
 
 ### Trigger nodes
 
@@ -104,23 +105,48 @@ the headers against your stored secret.
 
 ## Usage
 
-A ready-to-use workflow is included at
-[`templates/notify-on-video-ready.json`](./templates/notify-on-video-ready.json).
-Import it with **Workflow menu > Import from file**, replace the credential
-reference and Slack channel, then activate the workflow.
+Ready-to-use workflow templates are included in [`templates`](./templates):
 
-The template uses only the **On Video Ready** trigger. Ngram's public API does
-not currently expose a per-workflow correlation id, so a template that chains
-`Create Video` with the trigger would fire for every video on the account. For a
-correlated create-and-wait flow, chain `Create Video` with a `Wait` node followed
-by a `Get Status` loop.
+- [`notify-on-video-ready.json`](./templates/notify-on-video-ready.json):
+  post to Slack when any Ngram video finishes rendering.
+- [`create-video-from-google-sheets-row.json`](./templates/create-video-from-google-sheets-row.json):
+  generate a video from new Google Sheets rows.
+- [`create-video-from-rss-item.json`](./templates/create-video-from-rss-item.json):
+  turn new RSS feed items into videos.
+- [`email-on-video-ready.json`](./templates/email-on-video-ready.json):
+  email a stakeholder when a video is ready.
+- [`save-video-to-airtable.json`](./templates/save-video-to-airtable.json):
+  archive completed video metadata in Airtable.
+- [`sms-on-video-failed.json`](./templates/sms-on-video-failed.json):
+  send an SMS alert when a render fails.
+- [`create-video-from-hubspot-contact.json`](./templates/create-video-from-hubspot-contact.json):
+  create personalized intro videos for new HubSpot contacts.
+- [`changelog-video-from-github-merged-pr.json`](./templates/changelog-video-from-github-merged-pr.json):
+  turn merged GitHub pull requests into changelog videos.
+
+Import a template with **Workflow menu > Import from file**, replace credential
+references and app-specific settings, then activate the workflow.
+
+## What You Can Automate
+
+- Turn product launch rows, changelog entries, or campaign briefs into videos.
+- Create short videos from blog posts, RSS feed items, landing pages, or docs.
+- Generate on-brand updates for Slack, social scheduling, CRM, and marketing ops.
+- Poll render status or trigger downstream workflows when videos are ready.
+- Alert your team when a render fails so the workflow can recover quickly.
+
+The Slack notification template uses only the **On Video Ready** trigger.
+Ngram's public API does not currently expose a per-workflow correlation id, so a
+template that chains `Create Video` with the trigger would fire for every video
+on the account. For a correlated create-and-wait flow, chain `Create Video` with
+a `Wait` node followed by a `Get Status` loop.
 
 ## Resources
 
 - [Ngram documentation](https://www.ngram.com/docs)
 - [Ngram public API reference](https://www.ngram.com/docs/api)
 - [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
-- [n8n community node verification guidelines](https://docs.n8n.io/integrations/creating-nodes/build/reference/verification-guidelines/)
+- [n8n community node verification guidelines](https://docs.n8n.io/connect/create-nodes/build-your-node/reference/verification-guidelines/)
 
 ## Contributing
 

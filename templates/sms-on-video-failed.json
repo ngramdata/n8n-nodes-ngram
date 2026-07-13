@@ -1,0 +1,41 @@
+{
+  "name": "Notify via SMS when an Ngram video fails",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1f0c0e0-0000-4000-8000-000000000051",
+      "name": "Ngram: On Video Failed",
+      "type": "n8n-nodes-ngram.ngramTriggerFailed",
+      "typeVersion": 1,
+      "position": [260, 300],
+      "credentials": {
+        "ngramApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Ngram API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "+15555550100",
+        "to": "+15555550199",
+        "message": "=Ngram video failed.\nJob ID: {{ $json.id }}\nReason: {{ $json.reason ?? $json.error ?? 'No failure reason provided' }}"
+      },
+      "id": "a1f0c0e0-0000-4000-8000-000000000052",
+      "name": "Send SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [540, 300]
+    }
+  ],
+  "connections": {
+    "Ngram: On Video Failed": {
+      "main": [[{ "node": "Send SMS", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {},
+  "tags": ["ngram", "video", "twilio"]
+}
