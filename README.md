@@ -1,14 +1,16 @@
 # n8n-nodes-ngram
 
-![n8n.io - Community Node](https://img.shields.io/badge/n8n-community-FF6D5A)
+![n8n.io - Verified Community Node](https://img.shields.io/badge/n8n-verified-FF6D5A)
 [![npm version](https://img.shields.io/npm/v/n8n-nodes-ngram.svg)](https://www.npmjs.com/package/n8n-nodes-ngram)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-Official [Ngram](https://www.ngram.com) community node for [n8n](https://n8n.io).
-Generate polished AI videos from prompts, text, URLs, docs, and product content,
-then automate follow-up workflows when renders are ready or fail.
+Official [Ngram](https://www.ngram.com) community node for [n8n](https://n8n.io),
+**verified by n8n**. Generate polished AI videos from prompts, text, URLs,
+docs, and product content, then automate follow-up workflows the instant a
+render is ready or fails — no polling, HMAC-signed callbacks, self-hosted or
+n8n Cloud.
 
-This is an [n8n community node](https://docs.n8n.io/integrations/community-nodes/).
+This is a [verified n8n community node](https://n8n.io/integrations/ngram/).
 It lets you use Ngram in your n8n workflows.
 
 ## Features
@@ -17,8 +19,10 @@ It lets you use Ngram in your n8n workflows.
 - **Action - Create From Text**: turn a prompt or source text into a video.
 - **Action - Create From URL**: research a page, article, product page, or doc and create a video.
 - **Action - Get Status**: check a submitted job by id.
-- **Trigger - On Video Ready**: receive `video.completed` webhook events.
-- **Trigger - On Video Failed**: receive `video.failed` webhook events.
+- **Trigger - On Video Ready**: instant `video.completed` webhook — no polling loop needed.
+- **Trigger - On Video Failed**: instant `video.failed` webhook, with error code and message.
+- **Signed and reconciled**: every webhook is HMAC-SHA256 signed, and subscriptions are
+  auto-reconciled on activate/deactivate so redeploys never leak orphan hooks.
 
 ## Installation
 
@@ -135,6 +139,10 @@ references and app-specific settings, then activate the workflow.
 - Poll render status or trigger downstream workflows when videos are ready.
 - Alert your team when a render fails so the workflow can recover quickly.
 
+Because the node runs inside your own n8n instance — self-hosted or n8n
+Cloud — there's no separate vendor hop for the workflow runner: renders run
+against Ngram, everything else stays in your workflow.
+
 The Slack notification template uses only the **On Video Ready** trigger.
 Ngram's public API does not currently expose a per-workflow correlation id, so a
 template that chains `Create Video` with the trigger would fire for every video
@@ -143,8 +151,10 @@ a `Wait` node followed by a `Get Status` loop.
 
 ## Resources
 
+- [Ngram n8n setup guide](https://www.ngram.com/docs/n8n)
 - [Ngram documentation](https://www.ngram.com/docs)
 - [Ngram public API reference](https://www.ngram.com/docs/api)
+- [Verified listing on n8n.io](https://n8n.io/integrations/ngram/)
 - [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
 - [n8n community node verification guidelines](https://docs.n8n.io/connect/create-nodes/build-your-node/reference/verification-guidelines/)
 
