@@ -13,7 +13,7 @@ export class NgramApi implements ICredentialType {
 
 	icon: Icon = 'file:../icons/ngram.svg';
 
-	documentationUrl = 'https://www.ngram.com/docs/api/public-api-v1';
+	documentationUrl = 'https://www.ngram.com/docs/n8n';
 
 	properties: INodeProperties[] = [
 		{

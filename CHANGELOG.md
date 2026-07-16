@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-07-16
+
+### Changed
+
+- Point the `Ngram API` credential's documentation link at the dedicated n8n
+  setup guide instead of the generic public API reference.
+- Refresh README to lead with verified status and cross-link the n8n.io
+  listing, the setup guide, and the self-hosted/Cloud value proposition.
+
 ## [0.1.5] - 2026-07-13
 
 ### Changed

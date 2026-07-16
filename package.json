@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-ngram",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"description": "Generate polished AI videos from prompts, URLs, docs, and product content in n8n workflows.",
 	"keywords": [
 		"n8n-community-node-package",
