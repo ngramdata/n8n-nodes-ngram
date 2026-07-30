@@ -35,7 +35,6 @@ interface NgramConfigResponse {
 			description: string;
 			best_for: string;
 		}>;
-		video_modes: string[];
 		scenarios: string[];
 		video_type_profiles: Array<{ name: string; subtitle: string }>;
 	};
@@ -70,6 +69,14 @@ export async function stripEmptyBodyFields(
 		const cleaned: IDataObject = {};
 		for (const [key, value] of Object.entries(body)) {
 			if (value === undefined || value === null || value === '') continue;
+			if (key === 'image_urls' && typeof value === 'string') {
+				const urls = value
+					.split(/[\n,]/)
+					.map((url) => url.trim())
+					.filter(Boolean);
+				if (urls.length > 0) cleaned[key] = urls;
+				continue;
+			}
 			cleaned[key] = value;
 		}
 		requestOptions.body = cleaned;
@@ -263,7 +270,8 @@ export class Ngram implements INodeType {
 				typeOptions: { rows: 4 },
 				required: true,
 				default: '',
-				description: 'Describe the video you want Ngram to create',
+				description:
+					'Describe the video you want Ngram to create. Image URLs in this text are not treated as uploaded image assets.',
 				displayOptions: {
 					show: {
 						resource: ['video'],
@@ -399,20 +407,40 @@ export class Ngram implements INodeType {
 				routing: { send: { type: 'body', property: 'animation_mode' } },
 			},
 			{
-				displayName: 'Video Mode Name or ID',
-				name: 'video_mode',
+				displayName: 'Video Format',
+				name: 'video_format',
 				type: 'options',
-				description:
-					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-				typeOptions: { loadOptionsMethod: 'listVideoModes' },
+				options: [
+					{ name: 'Short Video', value: 'short' },
+					{ name: 'Use API Default', value: '' },
+					{ name: 'Video', value: 'video' },
+				],
 				default: '',
+				description:
+					'Defaults to Video, matching Studio. Choose Short Video for a silent, 15-second Hybrid video.',
 				displayOptions: {
 					show: {
 						resource: ['video'],
 						operation: ['create', 'createFromText', 'createFromUrl'],
 					},
 				},
-				routing: { send: { type: 'body', property: 'video_mode' } },
+				routing: { send: { type: 'body', property: 'video_format' } },
+			},
+			{
+				displayName: 'Image URLs',
+				name: 'image_urls',
+				type: 'string',
+				typeOptions: { rows: 4 },
+				default: '',
+				description:
+					'Public image URLs, one per line. These are processed as uploaded assets rather than prompt text.',
+				displayOptions: {
+					show: {
+						resource: ['video'],
+						operation: ['create', 'createFromText', 'createFromUrl'],
+					},
+				},
+				routing: { send: { type: 'body', property: 'image_urls' } },
 			},
 			{
 				displayName: 'Scenario Name or ID',
@@ -534,13 +562,6 @@ export class Ngram implements INodeType {
 					}));
 				}
 				return data.animation_modes.map((mode) => ({ name: humanize(mode), value: mode }));
-			},
-			async listVideoModes(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const data = await loadConfig.call(this);
-				return (data.video_modes ?? ['explainer', 'teaser']).map((mode) => ({
-					name: humanize(mode),
-					value: mode,
-				}));
 			},
 			async listScenarios(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				const data = await loadConfig.call(this);

@@ -74,6 +74,12 @@ Use the credential **Test** button to verify access. It calls
 | `Create From URL` | `website_url` | Job descriptor including `id` and status |
 | `Get Status` | `id` returned by a create operation | Current status and output URLs when ready |
 
+For Studio-equivalent defaults, leave optional creation settings unset. Ngram
+will use regular Video, 60 seconds, 16:9, Hybrid, Style Auto, Calm, YOLO, and
+the default voice. Select **Short Video** explicitly for a silent, 15-second
+Hybrid video. Add public image assets under **Image URLs**, one URL per line,
+rather than placing the URLs only in the prompt.
+
 ### Trigger nodes
 
 | Trigger | Event subscribed | Payload |

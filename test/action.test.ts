@@ -29,7 +29,8 @@ const EXPECTED_CREATE_FIELDS = [
 	'aspect_ratio',
 	'duration',
 	'animation_mode',
-	'video_mode',
+	'video_format',
+	'image_urls',
 	'scenario',
 	'video_type_profile',
 	'energy_level',
@@ -112,7 +113,6 @@ describe('Ngram action node — description', () => {
 			'style_id',
 			'duration',
 			'animation_mode',
-			'video_mode',
 			'scenario',
 			'video_type_profile',
 		];
@@ -176,6 +176,27 @@ describe('stripEmptyBodyFields preSend', () => {
 			prompt: 'hello',
 			duration: 30,
 			deep_research: false,
+		});
+	});
+
+	it('converts newline-separated image URLs into an asset array', async () => {
+		const requestOptions: IHttpRequestOptions = {
+			method: 'POST',
+			url: '/api/v1/videos',
+			body: {
+				prompt: 'hello',
+				image_urls: 'https://example.com/a.png\nhttps://example.com/b.png',
+			},
+		};
+
+		const result = await stripEmptyBodyFields.call(
+			{} as unknown as IExecuteSingleFunctions,
+			requestOptions,
+		);
+
+		expect(result.body).toEqual({
+			prompt: 'hello',
+			image_urls: ['https://example.com/a.png', 'https://example.com/b.png'],
 		});
 	});
 
@@ -272,7 +293,6 @@ describe('Ngram loadOptions', () => {
 						best_for: 'Product storytelling',
 					},
 				],
-				video_modes: ['explainer', 'teaser'],
 				scenarios: ['product_launch', 'changelog'],
 				video_type_profiles: [
 					{ name: 'Feature Explainer', subtitle: 'Walks through a single feature' },
@@ -327,14 +347,6 @@ describe('Ngram loadOptions', () => {
 				description:
 					'Remotion-driven graphics and layout animation. Best for: Product storytelling',
 			},
-		]);
-	});
-
-	it('listVideoModes humanizes mode ids', async () => {
-		const options = await callLoadOption('listVideoModes');
-		expect(options).toEqual([
-			{ name: 'Explainer', value: 'explainer' },
-			{ name: 'Teaser', value: 'teaser' },
 		]);
 	});
 
