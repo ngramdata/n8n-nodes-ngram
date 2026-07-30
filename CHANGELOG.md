@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-07-30
+
+### Added
+
+- Add the `Video Format` field for selecting the regular Studio-equivalent
+  workflow or an explicit silent, 15-second Hybrid short video.
+- Add top-level `Image URLs` input so public images are processed as uploaded
+  assets.
+
+### Changed
+
+- Remove the legacy `Video Mode` (`video_mode`) field, including the obsolete
+  `teaser` option.
+- Leave optional creation settings unset by default so the Ngram API applies
+  the same regular Video, 60-second, Hybrid defaults as Studio.
+
 ## [0.1.6] - 2026-07-16
 
 ### Changed
