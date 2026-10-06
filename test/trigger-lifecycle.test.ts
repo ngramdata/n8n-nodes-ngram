@@ -184,6 +184,36 @@ describe('trigger webhookMethods.default.delete', () => {
 		]);
 	});
 
+	it('continues sweeping when deleting one orphan subscription fails', async () => {
+		const { ctx, calls, logger } = buildHookContext({
+			webhookUrl: TARGET,
+			staticData: {},
+			responses: [
+				buildListResponse([
+					{ id: 'sub_orphan_1', event_type: 'video.completed', target_url: TARGET },
+					{ id: 'sub_orphan_2', event_type: 'video.completed', target_url: TARGET },
+				]),
+				() => {
+					throw new Error('delete failed');
+				},
+				{ success: true, data: { id: 'sub_orphan_2', deleted: true } },
+			],
+		});
+
+		const result = await methods.default.delete.call(ctx);
+
+		expect(result).toBe(true);
+		expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
+			'GET https://www.ngram.com/api/v1/webhooks/subscriptions',
+			'DELETE https://www.ngram.com/api/v1/webhooks/subscriptions/sub_orphan_1',
+			'DELETE https://www.ngram.com/api/v1/webhooks/subscriptions/sub_orphan_2',
+		]);
+		expect(logger.warn).toHaveBeenCalledWith(
+			'Ngram trigger: failed to delete orphan subscription during sweep',
+			expect.objectContaining({ subscriptionId: 'sub_orphan_1' }),
+		);
+	});
+
 	it('returns true even when the initial DELETE errors, and still runs the orphan sweep', async () => {
 		const { ctx, calls, staticData, logger } = buildHookContext({
 			webhookUrl: TARGET,

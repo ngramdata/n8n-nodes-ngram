@@ -4,7 +4,10 @@
  * on the Ngram action output and the trigger nodes:
  *
  *     { id, status, progress, video_url, duration_ms, error_code,
- *       error_message, created_at, completed_at }
+ *       error_message, created_at, completed_at, engine, app_url, warnings }
+ *
+ * `engine`, `app_url`, and newline-joined `warnings` come from the status
+ * response; webhook bodies do not carry them, so they are null there.
  *
  * Backend shape is declared in
  * `backend/services/public-api/public-api-responses.ts::VideoStatusResponse`
@@ -27,6 +30,9 @@ export interface FlatVideoOutput {
 	error_message: string | null;
 	created_at: string;
 	completed_at: string | null;
+	engine: 'v1' | 'v2' | null;
+	app_url: string | null;
+	warnings: string | null;
 }
 
 interface StatusResponseShape {
@@ -38,6 +44,9 @@ interface StatusResponseShape {
 	error?: string | null;
 	created_at?: string;
 	completed_at?: string | null;
+	engine?: 'v1' | 'v2' | null;
+	app_url?: string | null;
+	warnings?: unknown;
 }
 
 interface CompletedWebhookShape {
@@ -100,8 +109,21 @@ export function mapStatusResponse(data: StatusResponseShape): FlatVideoOutput {
 		error_message: data.error ?? null,
 		created_at: data.created_at ?? '',
 		completed_at: data.completed_at ?? null,
+		engine: data.engine === 'v1' || data.engine === 'v2' ? data.engine : null,
+		app_url: typeof data.app_url === 'string' ? data.app_url : null,
+		warnings: joinWarnings(data.warnings),
 	};
 }
+
+function joinWarnings(warnings: unknown): string | null {
+	if (!Array.isArray(warnings)) return null;
+	const lines = warnings.filter(
+		(warning): warning is string => typeof warning === 'string' && warning.trim().length > 0,
+	);
+	return lines.length > 0 ? lines.join('\n') : null;
+}
+
+const NO_ENGINE_METADATA = { engine: null, app_url: null, warnings: null } as const;
 
 export function mapWebhookPayload(payload: WebhookPayloadShape): FlatVideoOutput {
 	if (payload.event === 'video.completed') {
@@ -115,6 +137,7 @@ export function mapWebhookPayload(payload: WebhookPayloadShape): FlatVideoOutput
 			error_message: null,
 			created_at: payload.created_at,
 			completed_at: payload.completed_at ?? null,
+			...NO_ENGINE_METADATA,
 		};
 	}
 
@@ -128,5 +151,6 @@ export function mapWebhookPayload(payload: WebhookPayloadShape): FlatVideoOutput
 		error_message: payload.error ?? 'Video generation failed',
 		created_at: payload.created_at,
 		completed_at: payload.completed_at ?? null,
+		...NO_ENGINE_METADATA,
 	};
 }
