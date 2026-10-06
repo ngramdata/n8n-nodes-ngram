@@ -35,9 +35,7 @@
         "prompt": "={{ $json.prompt ?? $json.brief ?? $json.title }}",
         "website_url": "={{ $json.url ?? $json.website_url ?? '' }}",
         "aspect_ratio": "={{ $json.aspect_ratio ?? '9:16' }}",
-        "duration": "={{ $json.duration ?? 30 }}",
-        "scenario": "={{ $json.scenario ?? 'product_launch' }}",
-        "deep_research": true
+        "duration": "={{ $json.duration ?? 30 }}"
       },
       "id": "a1f0c0e0-0000-4000-8000-000000000012",
       "name": "Create Ngram Video",

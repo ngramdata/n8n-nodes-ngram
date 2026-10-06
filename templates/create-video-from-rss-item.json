@@ -25,8 +25,7 @@
         "website_url": "={{ $json.link }}",
         "prompt": "=Turn this article into a concise product or thought-leadership video: {{ $json.title }}",
         "aspect_ratio": "9:16",
-        "duration": 30,
-        "deep_research": true
+        "duration": 30
       },
       "id": "a1f0c0e0-0000-4000-8000-000000000022",
       "name": "Create Ngram Video",

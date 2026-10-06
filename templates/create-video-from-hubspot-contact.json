@@ -23,9 +23,7 @@
         "operation": "createFromText",
         "prompt": "=Create a short personalized intro video for {{ $json.properties?.firstname ?? $json.firstname ?? 'this contact' }} {{ $json.properties?.lastname ?? $json.lastname ?? '' }} from {{ $json.properties?.company ?? $json.company ?? 'their company' }}. Focus on a warm welcome, a clear value proposition, and a friendly next step.",
         "aspect_ratio": "16:9",
-        "duration": 30,
-        "scenario": "explainer_video",
-        "deep_research": false
+        "duration": 30
       },
       "id": "a1f0c0e0-0000-4000-8000-000000000062",
       "name": "Create Ngram Video",
