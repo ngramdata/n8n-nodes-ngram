@@ -209,7 +209,7 @@ describe('trigger webhookMethods.default.delete', () => {
 			'DELETE https://www.ngram.com/api/v1/webhooks/subscriptions/sub_orphan_2',
 		]);
 		expect(logger.warn).toHaveBeenCalledWith(
-			'Ngram trigger: failed to delete orphan subscription during sweep',
+			'ngram trigger: failed to delete orphan subscription during sweep',
 			expect.objectContaining({ subscriptionId: 'sub_orphan_1' }),
 		);
 	});
@@ -234,7 +234,7 @@ describe('trigger webhookMethods.default.delete', () => {
 		// Swallowed errors must still be logged so orphan-subscription bugs can
 		// be diagnosed from server logs.
 		expect(logger.warn).toHaveBeenCalledWith(
-			'Ngram trigger: failed to delete stored subscription during cleanup',
+			'ngram trigger: failed to delete stored subscription during cleanup',
 			expect.objectContaining({ subscriptionId: 'sub_broken' }),
 		);
 	});

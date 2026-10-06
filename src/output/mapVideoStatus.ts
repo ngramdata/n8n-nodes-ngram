@@ -1,7 +1,7 @@
 /**
  * Flatten the public-API video-status envelope (nested `result`, split
  * `error` / `error_code`) into the flat, Zapier-parity shape that users see
- * on the Ngram action output and the trigger nodes:
+ * on the ngram action output and the trigger nodes:
  *
  *     { id, status, progress, video_url, duration_ms, error_code,
  *       error_message, created_at, completed_at, engine, app_url, warnings }

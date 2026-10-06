@@ -9,16 +9,16 @@ import { buildWebhookMethods, webhookReceive } from '../../src/trigger/subscript
 
 export class NgramTriggerCompleted implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Ngram: On Video Ready',
+		displayName: 'ngram: On Video Ready',
 		name: 'ngramTriggerCompleted',
 		icon: 'file:../../icons/ngram.svg',
 		group: ['trigger'],
 		version: 1,
 		usableAsTool: true,
 		subtitle: 'video.completed',
-		description: 'Starts a workflow when an Ngram video finishes rendering.',
+		description: 'Starts a workflow when an ngram video finishes rendering.',
 		defaults: {
-			name: 'Ngram: On Video Ready',
+			name: 'ngram: On Video Ready',
 		},
 		inputs: [],
 		outputs: [NodeConnectionTypes.Main],

@@ -141,7 +141,7 @@ export async function throwApiErrorPostReceive(
 			? [typeof issue.path === 'string' && issue.path ? `${issue.path}: ${issue.message}` : issue.message]
 			: [],
 	);
-	const apiMessage = body.error?.message ?? `The Ngram API returned HTTP ${response.statusCode}`;
+	const apiMessage = body.error?.message ?? `The ngram API returned HTTP ${response.statusCode}`;
 	throw new NodeApiError(this.getNode(), body as unknown as JsonObject, {
 		message: issues.length > 0 ? `${apiMessage}: ${issues.join('; ')}` : apiMessage,
 		httpCode: String(response.statusCode),
@@ -188,7 +188,7 @@ export async function buildGetStatusUrl(
 
 export class Ngram implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Ngram',
+		displayName: 'ngram',
 		name: 'ngram',
 		icon: 'file:../../icons/ngram.svg',
 		group: ['transform'],
@@ -197,7 +197,7 @@ export class Ngram implements INodeType {
 		subtitle: '={{ $parameter["operation"] }}: {{ $parameter["resource"] }}',
 		description: 'Generate AI videos from prompts, text, and URLs, then check render status.',
 		defaults: {
-			name: 'Ngram',
+			name: 'ngram',
 		},
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
@@ -341,7 +341,7 @@ export class Ngram implements INodeType {
 				required: true,
 				default: '',
 				description:
-					'Describe the video you want Ngram to create. Image URLs in this text are not treated as uploaded image assets.',
+					'Describe the video you want ngram to create. Image URLs in this text are not treated as uploaded image assets.',
 				displayOptions: {
 					show: {
 						resource: ['video'],
@@ -356,7 +356,7 @@ export class Ngram implements INodeType {
 				type: 'string',
 				typeOptions: { rows: 4 },
 				default: '',
-				description: 'Optional direction for how Ngram should use the URL',
+				description: 'Optional direction for how ngram should use the URL',
 				displayOptions: {
 					show: {
 						resource: ['video'],
@@ -370,7 +370,7 @@ export class Ngram implements INodeType {
 				name: 'website_url',
 				type: 'string',
 				default: '',
-				description: 'Optional website Ngram can use for brand, product, or company context',
+				description: 'Optional website ngram can use for brand, product, or company context',
 				displayOptions: {
 					show: { resource: ['video'], operation: ['create'] },
 				},
@@ -382,7 +382,7 @@ export class Ngram implements INodeType {
 				type: 'string',
 				required: true,
 				default: '',
-				description: 'Page, article, product page, or doc Ngram should research and turn into a video',
+				description: 'Page, article, product page, or doc ngram should research and turn into a video',
 				displayOptions: {
 					show: { resource: ['video'], operation: ['createFromUrl'] },
 				},
@@ -393,7 +393,7 @@ export class Ngram implements INodeType {
 				name: 'director_model',
 				type: 'options',
 				description:
-					'The AI model that makes the video. Leave empty to use your account\'s default model. The price depends on the model chosen (credits per second shown in the Model list). Creating videos through the API needs a paid Ngram plan. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+					'The AI model that makes the video. Leave empty to use your account\'s default model. The price depends on the model chosen (credits per second shown in the Model list). Creating videos through the API needs a paid ngram plan. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				typeOptions: { loadOptionsMethod: 'listModels' },
 				default: '',
 				displayOptions: SHOW_ON_CREATE,
@@ -406,7 +406,7 @@ export class Ngram implements INodeType {
 				typeOptions: { loadOptionsMethod: 'listVoices' },
 				default: '',
 				description:
-					'The narrator. Leave empty to let Ngram choose, or pick No voiceover for a silent video. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+					'The narrator. Leave empty to let ngram choose, or pick No voiceover for a silent video. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				displayOptions: SHOW_ON_CREATE,
 				routing: { send: { type: 'body', property: 'voice_id' } },
 			},
@@ -415,7 +415,7 @@ export class Ngram implements INodeType {
 				name: 'style_id',
 				type: 'options',
 				description:
-					'The look of the video. Auto (the default) lets Ngram choose. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+					'The look of the video. Auto (the default) lets ngram choose. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				typeOptions: { loadOptionsMethod: 'listStyles' },
 				default: '',
 				displayOptions: SHOW_ON_CREATE,
@@ -445,7 +445,7 @@ export class Ngram implements INodeType {
 				name: 'duration',
 				type: 'options',
 				description:
-					'Length in seconds. Pick a suggested length, or use an expression for any length of at least 1 second; leave empty to let Ngram choose (Auto). Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+					'Length in seconds. Pick a suggested length, or use an expression for any length of at least 1 second; leave empty to let ngram choose (Auto). Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				typeOptions: { loadOptionsMethod: 'listDurations' },
 				default: '',
 				displayOptions: SHOW_ON_CREATE,
@@ -467,7 +467,7 @@ export class Ngram implements INodeType {
 				name: 'mood',
 				type: 'options',
 				description:
-					'The emotional tone. Auto (the default) lets Ngram choose. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+					'The emotional tone. Auto (the default) lets ngram choose. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				typeOptions: { loadOptionsMethod: 'listMoods' },
 				default: '',
 				displayOptions: SHOW_ON_CREATE,

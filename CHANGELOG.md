@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   requirement or the rejected field, instead of n8n's generic HTTP status text.
 - The `On Video Ready` / `On Video Failed` triggers keep cleaning up leftover
   webhook subscriptions when one cleanup request fails.
+- Write the brand as ngram in the node and trigger names, field descriptions,
+  error messages, and starter templates. The credential stays `Ngram API`
+  because n8n requires credential names in title case. Saved workflows are
+  unaffected: node and credential types are unchanged.
 
 ### Removed
 

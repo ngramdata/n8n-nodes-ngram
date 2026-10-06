@@ -22,14 +22,14 @@ interface NgramRequestOptions {
 }
 
 /**
- * Thin wrapper around httpRequestWithAuthentication for the Ngram public API.
+ * Thin wrapper around httpRequestWithAuthentication for the ngram public API.
  *
  * All auth, base-URL interpolation, and bearer-token handling is delegated to
  * the 'ngramApi' credential declared in credentials/NgramApi.credentials.ts.
  * Callers only pass the API path (e.g. '/api/v1/videos') and any body.
  *
  * This helper is used by the trigger nodes (programmatic) and by loadOptions.
- * The main Ngram action node uses declarative `routing` blocks and does not go
+ * The main ngram action node uses declarative `routing` blocks and does not go
  * through this helper.
  */
 export async function ngramRequest<T = unknown>(

@@ -1,10 +1,10 @@
 {
-  "name": "Notify via SMS when an Ngram video fails",
+  "name": "Notify via SMS when an ngram video fails",
   "nodes": [
     {
       "parameters": {},
       "id": "a1f0c0e0-0000-4000-8000-000000000051",
-      "name": "Ngram: On Video Failed",
+      "name": "ngram: On Video Failed",
       "type": "n8n-nodes-ngram.ngramTriggerFailed",
       "typeVersion": 1,
       "position": [260, 300],
@@ -21,7 +21,7 @@
         "operation": "send",
         "from": "+15555550100",
         "to": "+15555550199",
-        "message": "=Ngram video failed.\nJob ID: {{ $json.id }}\nReason: {{ $json.reason ?? $json.error ?? 'No failure reason provided' }}"
+        "message": "=ngram video failed.\nJob ID: {{ $json.id }}\nReason: {{ $json.reason ?? $json.error ?? 'No failure reason provided' }}"
       },
       "id": "a1f0c0e0-0000-4000-8000-000000000052",
       "name": "Send SMS",
@@ -31,7 +31,7 @@
     }
   ],
   "connections": {
-    "Ngram: On Video Failed": {
+    "ngram: On Video Failed": {
       "main": [[{ "node": "Send SMS", "type": "main", "index": 0 }]]
     }
   },

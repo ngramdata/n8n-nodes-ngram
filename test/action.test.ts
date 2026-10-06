@@ -156,9 +156,9 @@ describe('Ngram action node — description', () => {
 		expect(field('director_model')).toMatchObject({ displayName: 'Model Name or ID', default: '' });
 		expect(field('director_model')?.description).toContain("Leave empty to use your account's default model");
 		expect(field('director_model')?.description).toContain('The price depends on the model chosen');
-		expect(field('director_model')?.description).toContain('needs a paid Ngram plan');
+		expect(field('director_model')?.description).toContain('needs a paid ngram plan');
 		expect(field('duration')?.description).toContain(
-			'any length of at least 1 second; leave empty to let Ngram choose (Auto)',
+			'any length of at least 1 second; leave empty to let ngram choose (Auto)',
 		);
 		for (const name of ['director_model', 'duration', 'video_format']) {
 			expect(field(name)?.description).not.toMatch(/180|15-second|Lite|\d+ credits/);
@@ -345,7 +345,7 @@ describe('throwApiErrorPostReceive', () => {
 		});
 
 		await expect(attempt).rejects.toMatchObject({
-			message: 'The Ngram API returned HTTP 502',
+			message: 'The ngram API returned HTTP 502',
 			httpCode: '502',
 		});
 	});

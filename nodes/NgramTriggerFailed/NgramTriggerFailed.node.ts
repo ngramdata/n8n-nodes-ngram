@@ -9,16 +9,16 @@ import { buildWebhookMethods, webhookReceive } from '../../src/trigger/subscript
 
 export class NgramTriggerFailed implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Ngram: On Video Failed',
+		displayName: 'ngram: On Video Failed',
 		name: 'ngramTriggerFailed',
 		icon: 'file:../../icons/ngram.svg',
 		group: ['trigger'],
 		version: 1,
 		usableAsTool: true,
 		subtitle: 'video.failed',
-		description: 'Starts a workflow when an Ngram video fails.',
+		description: 'Starts a workflow when an ngram video fails.',
 		defaults: {
-			name: 'Ngram: On Video Failed',
+			name: 'ngram: On Video Failed',
 		},
 		inputs: [],
 		outputs: [NodeConnectionTypes.Main],
