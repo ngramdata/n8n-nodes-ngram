@@ -1,10 +1,10 @@
 {
-  "name": "Save finished Ngram videos to Airtable",
+  "name": "Save finished ngram videos to Airtable",
   "nodes": [
     {
       "parameters": {},
       "id": "a1f0c0e0-0000-4000-8000-000000000041",
-      "name": "Ngram: On Video Ready",
+      "name": "ngram: On Video Ready",
       "type": "n8n-nodes-ngram.ngramTriggerCompleted",
       "typeVersion": 1,
       "position": [260, 300],
@@ -47,7 +47,7 @@
     }
   ],
   "connections": {
-    "Ngram: On Video Ready": {
+    "ngram: On Video Ready": {
       "main": [[{ "node": "Create Airtable Record", "type": "main", "index": 0 }]]
     }
   },

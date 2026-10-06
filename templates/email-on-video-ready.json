@@ -1,10 +1,10 @@
 {
-  "name": "Email me when my Ngram video is ready",
+  "name": "Email me when my ngram video is ready",
   "nodes": [
     {
       "parameters": {},
       "id": "a1f0c0e0-0000-4000-8000-000000000031",
-      "name": "Ngram: On Video Ready",
+      "name": "ngram: On Video Ready",
       "type": "n8n-nodes-ngram.ngramTriggerCompleted",
       "typeVersion": 1,
       "position": [260, 300],
@@ -20,8 +20,8 @@
         "resource": "message",
         "operation": "send",
         "sendTo": "you@example.com",
-        "subject": "=Ngram video ready: {{ $json.id }}",
-        "message": "=Your Ngram video is ready.\n\nVideo URL: {{ $json.video_url ?? $json.result?.video_url ?? $json.url }}\nJob ID: {{ $json.id }}"
+        "subject": "=ngram video ready: {{ $json.id }}",
+        "message": "=Your ngram video is ready.\n\nVideo URL: {{ $json.video_url ?? $json.result?.video_url ?? $json.url }}\nJob ID: {{ $json.id }}"
       },
       "id": "a1f0c0e0-0000-4000-8000-000000000032",
       "name": "Send Email",
@@ -31,7 +31,7 @@
     }
   ],
   "connections": {
-    "Ngram: On Video Ready": {
+    "ngram: On Video Ready": {
       "main": [[{ "node": "Send Email", "type": "main", "index": 0 }]]
     }
   },

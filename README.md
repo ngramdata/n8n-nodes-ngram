@@ -4,21 +4,22 @@
 [![npm version](https://img.shields.io/npm/v/n8n-nodes-ngram.svg)](https://www.npmjs.com/package/n8n-nodes-ngram)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-Official [Ngram](https://www.ngram.com) community node for [n8n](https://n8n.io),
+Official [ngram](https://www.ngram.com) community node for [n8n](https://n8n.io),
 **verified by n8n**. Generate polished AI videos from prompts, text, URLs,
 docs, and product content, then automate follow-up workflows the instant a
 render is ready or fails — no polling, HMAC-signed callbacks, self-hosted or
 n8n Cloud.
 
 This is a [verified n8n community node](https://n8n.io/integrations/ngram/).
-It lets you use Ngram in your n8n workflows.
+It lets you use ngram in your n8n workflows.
 
 ## Features
 
-- **Action - Create Video**: start an Ngram video render with optional brand context.
+- **Action - Create Video**: start an ngram video render with optional brand context.
 - **Action - Create From Text**: turn a prompt or source text into a video.
 - **Action - Create From URL**: research a page, article, product page, or doc and create a video.
 - **Action - Get Status**: check a submitted job by id.
+- **Model choice**: pick the AI model for each video, with its live credits-per-second rate shown in the list.
 - **Trigger - On Video Ready**: instant `video.completed` webhook — no polling loop needed.
 - **Trigger - On Video Failed**: instant `video.failed` webhook, with error code and message.
 - **Signed and reconciled**: every webhook is HMAC-SHA256 signed, and subscriptions are
@@ -31,7 +32,7 @@ Follow the [n8n verified community node installation guide](https://docs.n8n.io/
 ### n8n Cloud
 
 1. Open the **nodes panel** from the canvas.
-2. Search for **Ngram**.
+2. Search for **ngram**.
 3. Select the verified community node and install it for your instance.
 4. Add your **Ngram API** credential before running workflows.
 
@@ -39,7 +40,7 @@ Follow the [n8n verified community node installation guide](https://docs.n8n.io/
 
 1. Open **Settings > Community nodes > Install**.
 2. Enter `n8n-nodes-ngram` and confirm.
-3. Restart n8n. The Ngram nodes appear in the node picker.
+3. Restart n8n. The ngram nodes appear in the node picker.
 
 ### Docker or CLI
 
@@ -65,7 +66,7 @@ Use the credential **Test** button to verify access. It calls
 
 ## Operations
 
-### Ngram node
+### ngram node
 
 | Operation | Required inputs | Returns |
 | --- | --- | --- |
@@ -74,22 +75,43 @@ Use the credential **Test** button to verify access. It calls
 | `Create From URL` | `website_url` | Job descriptor including `id` and status |
 | `Get Status` | `id` returned by a create operation | Current status and output URLs when ready |
 
-For Studio-equivalent defaults, leave optional creation settings unset. Ngram
-will use regular Video, 60 seconds, 16:9, Hybrid, Style Auto, Calm, YOLO, and
-the default voice. Select **Short Video** explicitly for a silent, 15-second
-Hybrid video. Add public image assets under **Image URLs**, one URL per line,
-rather than placing the URLs only in the prompt.
+### Create settings
+
+The three create operations share these optional settings. Leave any of them
+empty to let ngram choose. The dropdowns load live from your ngram account.
+
+| Field | Sent as | Notes |
+| --- | --- | --- |
+| `Model` | `director_model` | The AI model that makes the video. Each option shows its live rate in credits per second, so the price depends on the model you pick. Leave empty to use your account's default model. |
+| `Voice` | `voice_id` | The narrator, or **No voiceover** for a silent video. |
+| `Style` | `style_id` | The look of the video. **Auto** lets ngram choose. |
+| `Aspect Ratio` | `aspect_ratio` | `16:9`, `9:16`, or `1:1`. |
+| `Duration` | `duration` | Pick a suggested length, or use an expression for any length of at least 1 second. Leave empty for **Auto**. |
+| `Energy` | `energy_level` | The pace of the video. |
+| `Mood` | `mood` | The emotional tone. **Auto** lets ngram choose. |
+| `Narration Language` | `voice_language` | The language the narration is spoken in. Leave empty to match the prompt. |
+| `Brand Kit` | `brand_kit` | Apply one of your ngram Brand Kits (colors, fonts, and logo). |
+| `Video Format` | `video_format` | **Video** (the default) or **Short Video**, a video without narration. |
+| `Image URLs` | `image_urls` | Public image URLs, one per line, used as video sources rather than prompt text. |
+
+Creating videos through the API needs a paid ngram plan. When ngram turns a
+request down, for example because the account is on the Free plan or a setting
+is invalid, the node shows ngram's own message, including the field it rejected,
+instead of a generic HTTP error.
+
+`Get Status` also returns `app_url`, a link that opens the video in ngram, and
+`warnings`, one line per input ngram ignored or adjusted.
 
 ### Trigger nodes
 
 | Trigger | Event subscribed | Payload |
 | --- | --- | --- |
-| `Ngram: On Video Ready` | `video.completed` | Video metadata and signed download URLs |
-| `Ngram: On Video Failed` | `video.failed` | Job id and failure reason |
+| `ngram: On Video Ready` | `video.completed` | Video metadata and signed download URLs |
+| `ngram: On Video Failed` | `video.failed` | Job id and failure reason |
 
 ## Trigger Behavior
 
-The trigger nodes register a webhook subscription with the Ngram API when
+The trigger nodes register a webhook subscription with the ngram API when
 activated and delete it when deactivated. On re-activation, they query
 `GET /api/v1/webhooks/subscriptions` and reuse any matching subscription
 instead of creating a duplicate.
@@ -118,7 +140,7 @@ the headers against your stored secret.
 Ready-to-use workflow templates are included in [`templates`](./templates):
 
 - [`notify-on-video-ready.json`](./templates/notify-on-video-ready.json):
-  post to Slack when any Ngram video finishes rendering.
+  post to Slack when any ngram video finishes rendering.
 - [`create-video-from-google-sheets-row.json`](./templates/create-video-from-google-sheets-row.json):
   generate a video from new Google Sheets rows.
 - [`create-video-from-rss-item.json`](./templates/create-video-from-rss-item.json):
@@ -147,28 +169,35 @@ references and app-specific settings, then activate the workflow.
 
 Because the node runs inside your own n8n instance — self-hosted or n8n
 Cloud — there's no separate vendor hop for the workflow runner: renders run
-against Ngram, everything else stays in your workflow.
+against ngram, everything else stays in your workflow.
 
 The Slack notification template uses only the **On Video Ready** trigger.
-Ngram's public API does not currently expose a per-workflow correlation id, so a
+ngram's public API does not currently expose a per-workflow correlation id, so a
 template that chains `Create Video` with the trigger would fire for every video
 on the account. For a correlated create-and-wait flow, chain `Create Video` with
 a `Wait` node followed by a `Get Status` loop.
 
 ## Resources
 
-- [Ngram n8n setup guide](https://www.ngram.com/docs/n8n)
-- [Ngram documentation](https://www.ngram.com/docs)
-- [Ngram public API reference](https://www.ngram.com/docs/api)
+- [ngram n8n setup guide](https://www.ngram.com/docs/n8n)
+- [ngram documentation](https://www.ngram.com/docs)
+- [ngram public API reference](https://www.ngram.com/docs/api)
 - [Verified listing on n8n.io](https://n8n.io/integrations/ngram/)
 - [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
 - [n8n community node verification guidelines](https://docs.n8n.io/connect/create-nodes/build-your-node/reference/verification-guidelines/)
 
 ## Contributing
 
-This package is source-mirrored from the Ngram monorepo, where primary
-development happens. Pull requests and issues filed here are welcome and will be
-reviewed for upstream inclusion.
+This repository is the source of truth for the ngram n8n node; the ngram
+monorepo no longer contains it.
+
+- Change the node with a pull request to this repository.
+- Merging to `main` with a version bump in `package.json` publishes the new
+  version to npm under the `latest` tag through
+  [`.github/workflows/publish.yml`](./.github/workflows/publish.yml), using npm
+  trusted publishing.
+- When ngram's public API changes in a way that affects the node, the node
+  needs a matching pull request here.
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 

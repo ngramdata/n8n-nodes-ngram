@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import type {
-	IExecuteSingleFunctions,
-	IHttpRequestOptions,
-	ILoadOptionsFunctions,
-	INodePropertyOptions,
-	INodeProperties,
+import {
+	NodeApiError,
+	type IExecuteSingleFunctions,
+	type IHttpRequestOptions,
+	type ILoadOptionsFunctions,
+	type INodeExecutionData,
+	type INodePropertyOptions,
+	type INodeProperties,
 } from 'n8n-workflow';
 import {
 	Ngram,
 	buildGetStatusUrl,
 	loadConfig,
+	ngramPackageNodeLoaders,
 	stripEmptyBodyFields,
+	throwApiErrorPostReceive,
 } from '../nodes/Ngram/Ngram.node';
 import { buildHookContext } from './helpers/mock-context';
 
@@ -24,16 +28,23 @@ function buildExecuteSingleCtx(videoId: unknown): IExecuteSingleFunctions {
 const EXPECTED_CREATE_FIELDS = [
 	'prompt',
 	'website_url',
+	'director_model',
 	'voice_id',
 	'style_id',
 	'aspect_ratio',
 	'duration',
-	'animation_mode',
+	'energy_level',
+	'mood',
+	'voice_language',
+	'brand_kit',
 	'video_format',
 	'image_urls',
+];
+
+const V1_FIELDS = [
+	'animation_mode',
 	'scenario',
 	'video_type_profile',
-	'energy_level',
 	'story_flow',
 	'deep_research',
 ];
@@ -56,6 +67,13 @@ function findFieldsForOperation(node: Ngram, operation: string): INodeProperties
 
 describe('Ngram action node — description', () => {
 	const node = new Ngram();
+
+	it('keeps trigger node modules reachable from the package entrypoint', async () => {
+		const triggerModules = await Promise.all(ngramPackageNodeLoaders.map((load) => load()));
+
+		expect(triggerModules[0]).toHaveProperty('NgramTriggerCompleted');
+		expect(triggerModules[1]).toHaveProperty('NgramTriggerFailed');
+	});
 
 	it('declares all Create Video inputs with parity to Make/Zapier', () => {
 		const created = findCreateFields(node).map((p) => p.name);
@@ -107,18 +125,63 @@ describe('Ngram action node — description', () => {
 		expect(statusInputs[0]?.required).toBe(true);
 	});
 
-	it('declares loadOptions for all config-backed dropdowns', () => {
-		const configBacked = [
-			'voice_id',
-			'style_id',
-			'duration',
-			'animation_mode',
-			'scenario',
-			'video_type_profile',
-		];
-		for (const name of configBacked) {
+	it('declares loadOptions for every API-backed dropdown', () => {
+		const loadOptionsByField: Record<string, string> = {
+			voice_id: 'listVoices',
+			style_id: 'listStyles',
+			duration: 'listDurations',
+			energy_level: 'listEnergyLevels',
+			mood: 'listMoods',
+			voice_language: 'listVoiceLanguages',
+			brand_kit: 'listBrandKits',
+			director_model: 'listModels',
+		};
+		for (const [name, method] of Object.entries(loadOptionsByField)) {
 			const field = node.description.properties.find((p) => p.name === name);
-			expect(field?.typeOptions?.loadOptionsMethod).toBeTruthy();
+			expect(field?.typeOptions?.loadOptionsMethod).toBe(method);
+			expect(node.methods.loadOptions).toHaveProperty(method);
+		}
+	});
+
+	it('offers no deprecated V1 input, no Mode, and no option source for either', () => {
+		const names = node.description.properties.map((p) => p.name);
+		for (const field of [...V1_FIELDS, 'mode']) expect(names).not.toContain(field);
+		for (const method of ['listAnimationModes', 'listScenarios', 'listVideoTypeProfiles', 'listModes']) {
+			expect(node.methods.loadOptions).not.toHaveProperty(method);
+		}
+	});
+
+	it('describes Model, Duration, and Video Format with the current pricing and length rules', () => {
+		const field = (name: string) => node.description.properties.find((p) => p.name === name);
+		expect(field('director_model')).toMatchObject({ displayName: 'Model Name or ID', default: '' });
+		expect(field('director_model')?.description).toContain("Leave empty to use your account's default model");
+		expect(field('director_model')?.description).toContain('The price depends on the model chosen');
+		expect(field('director_model')?.description).toContain('needs a paid ngram plan');
+		expect(field('duration')?.description).toContain(
+			'any length of at least 1 second; leave empty to let ngram choose (Auto)',
+		);
+		for (const name of ['director_model', 'duration', 'video_format']) {
+			expect(field(name)?.description).not.toMatch(/180|15-second|Lite|\d+ credits/);
+		}
+	});
+
+	it('reports API errors from every create operation through throwApiErrorPostReceive', () => {
+		const operation = node.description.properties.find((p) => p.name === 'operation');
+		const creates = (
+			operation?.options as Array<{
+				value: string;
+				routing?: { request?: { ignoreHttpStatusErrors?: boolean }; output?: { postReceive?: unknown[] } };
+			}>
+		).filter((option) => option.value.startsWith('create'));
+
+		expect(creates.map((option) => option.value).sort()).toEqual([
+			'create',
+			'createFromText',
+			'createFromUrl',
+		]);
+		for (const option of creates) {
+			expect(option.routing?.request?.ignoreHttpStatusErrors).toBe(true);
+			expect(option.routing?.output?.postReceive?.[0]).toBe(throwApiErrorPostReceive);
 		}
 	});
 
@@ -161,9 +224,9 @@ describe('stripEmptyBodyFields preSend', () => {
 				voice_id: '',
 				website_url: '',
 				duration: 30,
-				deep_research: false,
+				director_model: 'opus-5.5',
 				aspect_ratio: null,
-				scenario: undefined,
+				mood: undefined,
 			},
 		};
 
@@ -175,7 +238,7 @@ describe('stripEmptyBodyFields preSend', () => {
 		expect(result.body).toEqual({
 			prompt: 'hello',
 			duration: 30,
-			deep_research: false,
+			director_model: 'opus-5.5',
 		});
 	});
 
@@ -213,6 +276,78 @@ describe('stripEmptyBodyFields preSend', () => {
 		);
 
 		expect(result.body).toBe('not-an-object');
+	});
+});
+
+describe('throwApiErrorPostReceive', () => {
+	const ctx = {
+		getNode: () => ({ name: 'Ngram', type: 'n8n-nodes-ngram.ngram' }),
+	} as unknown as IExecuteSingleFunctions;
+	const items: INodeExecutionData[] = [{ json: {} }];
+
+	it('passes successful responses through unchanged', async () => {
+		const result = await throwApiErrorPostReceive.call(ctx, items, {
+			statusCode: 202,
+			headers: {},
+			body: { success: true, data: { id: 'vid_1' } },
+		});
+
+		expect(result).toBe(items);
+	});
+
+	it("headlines the API's paid-plan message instead of n8n's generic 403 text", async () => {
+		const paidPlanMessage =
+			'API and MCP videos are delivered as MP4 downloads, which require a paid plan. Create the video in the ngram app and share an ngram-hosted link, or upgrade.';
+
+		const attempt = throwApiErrorPostReceive.call(ctx, items, {
+			statusCode: 403,
+			headers: {},
+			body: {
+				success: false,
+				error: {
+					code: 'FORBIDDEN',
+					message: paidPlanMessage,
+					statusCode: 403,
+					details: { reason: 'download_requires_paid_plan' },
+				},
+			},
+		});
+
+		await expect(attempt).rejects.toBeInstanceOf(NodeApiError);
+		await expect(attempt).rejects.toMatchObject({ message: paidPlanMessage, httpCode: '403' });
+	});
+
+	it('names each field the API rejected', async () => {
+		const attempt = throwApiErrorPostReceive.call(ctx, items, {
+			statusCode: 400,
+			headers: {},
+			body: {
+				success: false,
+				error: {
+					code: 'BAD_REQUEST',
+					message: 'Invalid request body',
+					details: { issues: [{ path: 'mode', message: 'Invalid option: expected "pro"' }] },
+				},
+			},
+		});
+
+		await expect(attempt).rejects.toMatchObject({
+			message: 'Invalid request body: mode: Invalid option: expected "pro"',
+			httpCode: '400',
+		});
+	});
+
+	it('falls back to the status code when the body carries no message', async () => {
+		const attempt = throwApiErrorPostReceive.call(ctx, items, {
+			statusCode: 502,
+			headers: {},
+			body: '<html>Bad gateway</html>',
+		});
+
+		await expect(attempt).rejects.toMatchObject({
+			message: 'The ngram API returned HTTP 502',
+			httpCode: '502',
+		});
 	});
 });
 
@@ -272,31 +407,35 @@ describe('Ngram loadOptions', () => {
 					{ id: 'voice_b', name: 'Ben', provider: 'azure' },
 				],
 				styles: [
-					{ id: 'cinematic', label: 'Cinematic' },
-					{ id: 'minimal', label: 'Minimal' },
+					{ id: 'auto', label: 'Auto', description: 'Ngram chooses the look.' },
+					{ id: 'whiteboard', label: 'Whiteboard' },
 				],
 				default_voice_id: null,
 				aspect_ratios: ['16:9', '9:16', '1:1'],
 				durations: [15, 30, 60],
-				animation_modes: ['basic', 'motion_graphics'],
-				animation_mode_options: [
-					{
-						id: 'basic',
-						label: 'Basic',
-						description: 'Photo-motion video with generated visuals.',
-						best_for: 'Simple explainers',
-					},
-					{
-						id: 'motion_graphics',
-						label: 'Motion Graphics',
-						description: 'Remotion-driven graphics and layout animation.',
-						best_for: 'Product storytelling',
-					},
+				energy_levels: [
+					{ id: 'calm', label: 'Calm', description: 'Room to breathe' },
+					{ id: 'energetic', label: 'Energetic', description: 'Fast and expressive' },
 				],
-				scenarios: ['product_launch', 'changelog'],
-				video_type_profiles: [
-					{ name: 'Feature Explainer', subtitle: 'Walks through a single feature' },
+				moods: [
+					{ id: 'auto', label: 'Auto' },
+					{ id: 'warm', label: 'Warm' },
 				],
+				voice_languages: [
+					{ code: 'en', label: 'English' },
+					{ code: 'es', label: 'Spanish' },
+				],
+				v2_creation: {
+					directors: [
+						{ id: 'ngram-flash', label: 'ngram-flash', credits_per_second: 3, requires_paid_plan: true },
+						{ id: 'opus-5.5', label: 'Opus 5.5', credits_per_second: 10, requires_paid_plan: true },
+					],
+					default_director_models: { free: 'ngram-flash', paid: 'opus-5.5' },
+				},
+				// Deprecated V1 catalogs the API still returns for older clients.
+				animation_modes: [],
+				scenarios: [],
+				video_type_profiles: [],
 			},
 		};
 	}
@@ -316,11 +455,11 @@ describe('Ngram loadOptions', () => {
 		]);
 	});
 
-	it('listStyles returns label/id pairs', async () => {
+	it('listStyles returns the V2 style labels and descriptions', async () => {
 		const options = await callLoadOption('listStyles');
 		expect(options).toEqual([
-			{ name: 'Cinematic', value: 'cinematic' },
-			{ name: 'Minimal', value: 'minimal' },
+			{ name: 'Auto', value: 'auto', description: 'Ngram chooses the look.' },
+			{ name: 'Whiteboard', value: 'whiteboard' },
 		]);
 	});
 
@@ -333,38 +472,71 @@ describe('Ngram loadOptions', () => {
 		]);
 	});
 
-	it('listAnimationModes prefers rich labels and descriptions when present', async () => {
-		const options = await callLoadOption('listAnimationModes');
-		expect(options).toEqual([
-			{
-				name: 'Basic',
-				value: 'basic',
-				description: 'Photo-motion video with generated visuals. Best for: Simple explainers',
-			},
-			{
-				name: 'Motion Graphics',
-				value: 'motion_graphics',
-				description:
-					'Remotion-driven graphics and layout animation. Best for: Product storytelling',
-			},
+	it('listEnergyLevels, listMoods, and listVoiceLanguages read the V2 catalogs', async () => {
+		expect(await callLoadOption('listEnergyLevels')).toEqual([
+			{ name: 'Calm', value: 'calm', description: 'Room to breathe' },
+			{ name: 'Energetic', value: 'energetic', description: 'Fast and expressive' },
+		]);
+		expect(await callLoadOption('listMoods')).toEqual([
+			{ name: 'Auto', value: 'auto' },
+			{ name: 'Warm', value: 'warm' },
+		]);
+		expect(await callLoadOption('listVoiceLanguages')).toEqual([
+			{ name: 'English', value: 'en' },
+			{ name: 'Spanish', value: 'es' },
 		]);
 	});
 
-	it('listScenarios humanizes ids', async () => {
-		const options = await callLoadOption('listScenarios');
+	it('listModels lists v2_creation.directors from /api/v1/config with their live rate', async () => {
+		const { ctx, calls } = buildHookContext({ responses: [buildConfigResponse()] });
+
+		const options = await node.methods.loadOptions.listModels.call(
+			ctx as unknown as ILoadOptionsFunctions,
+		);
+
+		expect(calls[0]?.url).toBe('https://www.ngram.com/api/v1/config');
 		expect(options).toEqual([
-			{ name: 'Product Launch', value: 'product_launch' },
-			{ name: 'Changelog', value: 'changelog' },
+			{ name: 'ngram-flash — 3 credits/sec', value: 'ngram-flash' },
+			{ name: 'Opus 5.5 — 10 credits/sec', value: 'opus-5.5' },
 		]);
 	});
 
-	it('listVideoTypeProfiles concatenates name and subtitle', async () => {
-		const options = await callLoadOption('listVideoTypeProfiles');
+	it('listModels is empty when the backend lists no models', async () => {
+		const config = buildConfigResponse();
+		const { ctx } = buildHookContext({
+			responses: [{ ...config, data: { ...config.data, v2_creation: null } }],
+		});
+
+		const options = await node.methods.loadOptions.listModels.call(
+			ctx as unknown as ILoadOptionsFunctions,
+		);
+
+		expect(options).toEqual([]);
+	});
+
+	it('listBrandKits lists the Brand Kits from /api/v1/brand-kits', async () => {
+		const { ctx, calls } = buildHookContext({
+			responses: [
+				{
+					success: true,
+					data: {
+						brand_kits: [
+							{ id: 'kit-1', name: 'Acme', is_default: true },
+							{ id: 'kit-2', name: 'Side project', is_default: false },
+						],
+					},
+				},
+			],
+		});
+
+		const options = await node.methods.loadOptions.listBrandKits.call(
+			ctx as unknown as ILoadOptionsFunctions,
+		);
+
+		expect(calls[0]?.url).toBe('https://www.ngram.com/api/v1/brand-kits');
 		expect(options).toEqual([
-			{
-				name: 'Feature Explainer — Walks through a single feature',
-				value: 'Feature Explainer',
-			},
+			{ name: 'Acme (default)', value: 'kit-1' },
+			{ name: 'Side project', value: 'kit-2' },
 		]);
 	});
 

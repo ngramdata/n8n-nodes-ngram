@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-10-06
+
+0.2.0 was not published separately; its changes ship in this release.
+
+### Added
+
+- Add the `Model` field (`director_model`). It lists the models available to
+  your account with each one's live rate in credits per second; leave it empty
+  to use the account's default model.
+- Add `Mood`, `Narration Language` (`voice_language`), and `Brand Kit`
+  (`brand_kit`) fields, loaded from your ngram account.
+- `Get Status` now returns `app_url` (a link that opens the video in ngram)
+  and `warnings` (inputs ngram ignored or adjusted, one per line).
+
+### Changed
+
+- `Duration` accepts any length of at least 1 second through an expression,
+  or Auto when left empty.
+- `Energy` is now a dropdown loaded from your ngram account, and `Style` and
+  `Voice` describe their choices.
+- Creating videos through the API needs a paid ngram plan. The create
+  operations now show ngram's own error message, such as the paid-plan
+  requirement or the rejected field, instead of n8n's generic HTTP status text.
+- The `On Video Ready` / `On Video Failed` triggers keep cleaning up leftover
+  webhook subscriptions when one cleanup request fails.
+- Write the brand as ngram in the node and trigger names, field descriptions,
+  error messages, and starter templates. The credential stays `Ngram API`
+  because n8n requires credential names in title case. Saved workflows are
+  unaffected: node and credential types are unchanged.
+
+### Removed
+
+- Remove the `Animation Mode`, `Scenario`, `Video Type Profile`, `Story Flow`,
+  and `Deep Research` fields. Model choice replaces the Lite/Pro mode, and Lite
+  is retired; the node has no Mode setting. Saved workflows that set a removed
+  field keep running; the node no longer sends it.
+- Starter templates no longer set `scenario` or `deep_research`.
+
 ## [0.1.7] - 2026-07-30
 
 ### Added

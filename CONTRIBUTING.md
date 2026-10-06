@@ -1,10 +1,19 @@
 # Contributing
 
-Thanks for your interest in improving the Ngram n8n community node.
+Thanks for your interest in improving the ngram n8n community node.
 
-This repository is the public mirror for the standalone npm package. The source
-of truth lives in the Ngram monorepo under `apps/n8n/`, so maintainers may
-cherry-pick or replay accepted changes upstream before they appear here.
+## Source of truth
+
+This repository is the source of truth for the ngram n8n node; the ngram
+monorepo no longer contains it.
+
+- Change the node with a pull request to this repository.
+- Merging to `main` with a version bump in `package.json` publishes the new
+  version to npm under the `latest` tag through
+  `.github/workflows/publish.yml`, using npm trusted publishing. A merge that
+  does not change the version publishes nothing.
+- When ngram's public API changes in a way that affects the node, the node
+  needs a matching pull request here.
 
 ## Development
 

@@ -1,4 +1,5 @@
 import {
+	NodeApiError,
 	NodeConnectionTypes,
 	NodeOperationError,
 	type IDataObject,
@@ -10,9 +11,15 @@ import {
 	type INodePropertyOptions,
 	type INodeType,
 	type INodeTypeDescription,
+	type JsonObject,
 } from 'n8n-workflow';
 import { mapStatusResponse } from '../../src/output/mapVideoStatus';
 import { ngramRequest } from '../../src/transport/ngramRequest';
+
+export const ngramPackageNodeLoaders = [
+	() => import('../NgramTriggerCompleted/NgramTriggerCompleted.node'),
+	() => import('../NgramTriggerFailed/NgramTriggerFailed.node'),
+] as const;
 
 // vid_ ids are base64url-encoded (alphanumerics plus `_` / `-`) per
 // backend/services/public-api-jobs.ts. Rejecting anything outside that
@@ -21,22 +28,47 @@ import { ngramRequest } from '../../src/transport/ngramRequest';
 // connected API key attached).
 const VIDEO_ID_PATTERN = /^vid_[A-Za-z0-9_-]+$/;
 
+interface NgramOption {
+	id: string;
+	label: string;
+	description?: string;
+}
+
+/** A model (director) the API offers, priced per second of finished video. */
+interface NgramDirector {
+	id: string;
+	label: string;
+	credits_per_second: number;
+}
+
+/** The V2 create-video catalog on GET /api/v1/config (deprecated V1 catalogs are not read). */
 interface NgramConfigResponse {
 	data: {
+		/** The models API callers can choose; null when the backend's video settings are not configured. */
+		v2_creation?: { directors: NgramDirector[] } | null;
 		voices: Array<{ id: string; name: string; provider: string }>;
-		styles: Array<{ id: string; label: string }>;
+		styles: NgramOption[];
 		default_voice_id: string | null;
 		aspect_ratios: string[];
 		durations: number[];
-		animation_modes: string[];
-		animation_mode_options?: Array<{
-			id: string;
-			label: string;
-			description: string;
-			best_for: string;
-		}>;
-		scenarios: string[];
-		video_type_profiles: Array<{ name: string; subtitle: string }>;
+		energy_levels?: NgramOption[];
+		moods?: NgramOption[];
+		voice_languages?: Array<{ code: string; label: string }>;
+	};
+}
+
+const SHOW_ON_CREATE = {
+	show: {
+		resource: ['video'],
+		operation: ['create', 'createFromText', 'createFromUrl'],
+	},
+};
+
+function toOption(option: NgramOption): INodePropertyOptions {
+	return {
+		name: option.label,
+		value: option.id,
+		...(option.description ? { description: option.description } : {}),
 	};
 }
 
@@ -48,10 +80,6 @@ export async function loadConfig(
 		url: '/api/v1/config',
 	})) as NgramConfigResponse;
 	return response.data;
-}
-
-function humanize(value: string): string {
-	return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /**
@@ -84,13 +112,49 @@ export async function stripEmptyBodyFields(
 	return requestOptions;
 }
 
+interface NgramApiErrorBody {
+	error?: {
+		message?: string;
+		/** A rejected request body lists each invalid field as `{ path, message }`. */
+		details?: { issues?: Array<{ path?: unknown; message?: unknown }> };
+	};
+}
+
+/**
+ * The create operations ask n8n not to throw on HTTP errors so this hook can
+ * report the API's own message (e.g. a paid plan is required, the model is
+ * unavailable) as the error itself. n8n's default would headline a 403 as
+ * "Forbidden - perhaps check your credentials?", which misdirects a Free
+ * account whose key is valid.
+ */
+export async function throwApiErrorPostReceive(
+	this: IExecuteSingleFunctions,
+	items: INodeExecutionData[],
+	response: IN8nHttpFullResponse,
+): Promise<INodeExecutionData[]> {
+	if (response.statusCode < 400) return items;
+	const body = (
+		response.body && typeof response.body === 'object' ? response.body : {}
+	) as NgramApiErrorBody;
+	const issues = (body.error?.details?.issues ?? []).flatMap((issue) =>
+		typeof issue?.message === 'string'
+			? [typeof issue.path === 'string' && issue.path ? `${issue.path}: ${issue.message}` : issue.message]
+			: [],
+	);
+	const apiMessage = body.error?.message ?? `The ngram API returned HTTP ${response.statusCode}`;
+	throw new NodeApiError(this.getNode(), body as unknown as JsonObject, {
+		message: issues.length > 0 ? `${apiMessage}: ${issues.join('; ')}` : apiMessage,
+		httpCode: String(response.statusCode),
+	});
+}
+
 /**
  * Flatten the Get Status response to the Zapier-parity shape before returning
  * items downstream. Runs as a declarative postReceive hook so the raw
  * {success, data: {...}} envelope is unwrapped and the nested `result` is
  * hoisted to top-level `video_url` / `duration_ms`.
  */
-export async function flattenStatusPostReceive(
+async function flattenStatusPostReceive(
 	this: IExecuteSingleFunctions,
 	_items: INodeExecutionData[],
 	response: IN8nHttpFullResponse,
@@ -124,7 +188,7 @@ export async function buildGetStatusUrl(
 
 export class Ngram implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Ngram',
+		displayName: 'ngram',
 		name: 'ngram',
 		icon: 'file:../../icons/ngram.svg',
 		group: ['transform'],
@@ -133,7 +197,7 @@ export class Ngram implements INodeType {
 		subtitle: '={{ $parameter["operation"] }}: {{ $parameter["resource"] }}',
 		description: 'Generate AI videos from prompts, text, and URLs, then check render status.',
 		defaults: {
-			name: 'Ngram',
+			name: 'ngram',
 		},
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
@@ -176,12 +240,14 @@ export class Ngram implements INodeType {
 							request: {
 								method: 'POST',
 								url: '/api/v1/videos:fromText',
+								ignoreHttpStatusErrors: true,
 							},
 							send: {
 								preSend: [stripEmptyBodyFields],
 							},
 							output: {
 								postReceive: [
+									throwApiErrorPostReceive,
 									{
 										type: 'rootProperty',
 										properties: { property: 'data' },
@@ -200,12 +266,14 @@ export class Ngram implements INodeType {
 							request: {
 								method: 'POST',
 								url: '/api/v1/videos:fromUrl',
+								ignoreHttpStatusErrors: true,
 							},
 							send: {
 								preSend: [stripEmptyBodyFields],
 							},
 							output: {
 								postReceive: [
+									throwApiErrorPostReceive,
 									{
 										type: 'rootProperty',
 										properties: { property: 'data' },
@@ -224,12 +292,14 @@ export class Ngram implements INodeType {
 							request: {
 								method: 'POST',
 								url: '/api/v1/videos',
+								ignoreHttpStatusErrors: true,
 							},
 							send: {
 								preSend: [stripEmptyBodyFields],
 							},
 							output: {
 								postReceive: [
+									throwApiErrorPostReceive,
 									{
 										type: 'rootProperty',
 										properties: { property: 'data' },
@@ -271,7 +341,7 @@ export class Ngram implements INodeType {
 				required: true,
 				default: '',
 				description:
-					'Describe the video you want Ngram to create. Image URLs in this text are not treated as uploaded image assets.',
+					'Describe the video you want ngram to create. Image URLs in this text are not treated as uploaded image assets.',
 				displayOptions: {
 					show: {
 						resource: ['video'],
@@ -286,7 +356,7 @@ export class Ngram implements INodeType {
 				type: 'string',
 				typeOptions: { rows: 4 },
 				default: '',
-				description: 'Optional direction for how Ngram should use the URL',
+				description: 'Optional direction for how ngram should use the URL',
 				displayOptions: {
 					show: {
 						resource: ['video'],
@@ -300,7 +370,7 @@ export class Ngram implements INodeType {
 				name: 'website_url',
 				type: 'string',
 				default: '',
-				description: 'Optional website Ngram can use for brand, product, or company context',
+				description: 'Optional website ngram can use for brand, product, or company context',
 				displayOptions: {
 					show: { resource: ['video'], operation: ['create'] },
 				},
@@ -312,11 +382,22 @@ export class Ngram implements INodeType {
 				type: 'string',
 				required: true,
 				default: '',
-				description: 'Page, article, product page, or doc Ngram should research and turn into a video',
+				description: 'Page, article, product page, or doc ngram should research and turn into a video',
 				displayOptions: {
 					show: { resource: ['video'], operation: ['createFromUrl'] },
 				},
 				routing: { send: { type: 'body', property: 'website_url' } },
+			},
+			{
+				displayName: 'Model Name or ID',
+				name: 'director_model',
+				type: 'options',
+				description:
+					'The AI model that makes the video. Leave empty to use your account\'s default model. The price depends on the model chosen (credits per second shown in the Model list). Creating videos through the API needs a paid ngram plan. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				typeOptions: { loadOptionsMethod: 'listModels' },
+				default: '',
+				displayOptions: SHOW_ON_CREATE,
+				routing: { send: { type: 'body', property: 'director_model' } },
 			},
 			{
 				displayName: 'Voice Name or ID',
@@ -325,13 +406,8 @@ export class Ngram implements INodeType {
 				typeOptions: { loadOptionsMethod: 'listVoices' },
 				default: '',
 				description:
-					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-				displayOptions: {
-					show: {
-						resource: ['video'],
-						operation: ['create', 'createFromText', 'createFromUrl'],
-					},
-				},
+					'The narrator. Leave empty to let ngram choose, or pick No voiceover for a silent video. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				displayOptions: SHOW_ON_CREATE,
 				routing: { send: { type: 'body', property: 'voice_id' } },
 			},
 			{
@@ -339,15 +415,10 @@ export class Ngram implements INodeType {
 				name: 'style_id',
 				type: 'options',
 				description:
-					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+					'The look of the video. Auto (the default) lets ngram choose. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				typeOptions: { loadOptionsMethod: 'listStyles' },
 				default: '',
-				displayOptions: {
-					show: {
-						resource: ['video'],
-						operation: ['create', 'createFromText', 'createFromUrl'],
-					},
-				},
+				displayOptions: SHOW_ON_CREATE,
 				routing: { send: { type: 'body', property: 'style_id' } },
 			},
 			{
@@ -366,12 +437,7 @@ export class Ngram implements INodeType {
 				// option here satisfies the n8n lint rule that requires the default
 				// to match one of the listed `options` values.
 				default: '',
-				displayOptions: {
-					show: {
-						resource: ['video'],
-						operation: ['create', 'createFromText', 'createFromUrl'],
-					},
-				},
+				displayOptions: SHOW_ON_CREATE,
 				routing: { send: { type: 'body', property: 'aspect_ratio' } },
 			},
 			{
@@ -379,32 +445,55 @@ export class Ngram implements INodeType {
 				name: 'duration',
 				type: 'options',
 				description:
-					'Target duration in seconds. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+					'Length in seconds. Pick a suggested length, or use an expression for any length of at least 1 second; leave empty to let ngram choose (Auto). Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				typeOptions: { loadOptionsMethod: 'listDurations' },
 				default: '',
-				displayOptions: {
-					show: {
-						resource: ['video'],
-						operation: ['create', 'createFromText', 'createFromUrl'],
-					},
-				},
+				displayOptions: SHOW_ON_CREATE,
 				routing: { send: { type: 'body', property: 'duration' } },
 			},
 			{
-				displayName: 'Animation Mode Name or ID',
-				name: 'animation_mode',
+				displayName: 'Energy Name or ID',
+				name: 'energy_level',
 				type: 'options',
 				description:
-					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-				typeOptions: { loadOptionsMethod: 'listAnimationModes' },
+					'The pace of the video. Defaults to Balanced. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				typeOptions: { loadOptionsMethod: 'listEnergyLevels' },
 				default: '',
-				displayOptions: {
-					show: {
-						resource: ['video'],
-						operation: ['create', 'createFromText', 'createFromUrl'],
-					},
-				},
-				routing: { send: { type: 'body', property: 'animation_mode' } },
+				displayOptions: SHOW_ON_CREATE,
+				routing: { send: { type: 'body', property: 'energy_level' } },
+			},
+			{
+				displayName: 'Mood Name or ID',
+				name: 'mood',
+				type: 'options',
+				description:
+					'The emotional tone. Auto (the default) lets ngram choose. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				typeOptions: { loadOptionsMethod: 'listMoods' },
+				default: '',
+				displayOptions: SHOW_ON_CREATE,
+				routing: { send: { type: 'body', property: 'mood' } },
+			},
+			{
+				displayName: 'Narration Language Name or ID',
+				name: 'voice_language',
+				type: 'options',
+				description:
+					'The language the narration is spoken in. Leave empty to match the prompt. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				typeOptions: { loadOptionsMethod: 'listVoiceLanguages' },
+				default: '',
+				displayOptions: SHOW_ON_CREATE,
+				routing: { send: { type: 'body', property: 'voice_language' } },
+			},
+			{
+				displayName: 'Brand Kit Name or ID',
+				name: 'brand_kit',
+				type: 'options',
+				description:
+					'Apply one of your Brand Kits (colors, fonts, and logo). Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				typeOptions: { loadOptionsMethod: 'listBrandKits' },
+				default: '',
+				displayOptions: SHOW_ON_CREATE,
+				routing: { send: { type: 'body', property: 'brand_kit' } },
 			},
 			{
 				displayName: 'Video Format',
@@ -416,14 +505,8 @@ export class Ngram implements INodeType {
 					{ name: 'Video', value: 'video' },
 				],
 				default: '',
-				description:
-					'Defaults to Video, matching Studio. Choose Short Video for a silent, 15-second Hybrid video.',
-				displayOptions: {
-					show: {
-						resource: ['video'],
-						operation: ['create', 'createFromText', 'createFromUrl'],
-					},
-				},
+				description: 'Defaults to Video. Short Video makes a video without narration.',
+				displayOptions: SHOW_ON_CREATE,
 				routing: { send: { type: 'body', property: 'video_format' } },
 			},
 			{
@@ -433,90 +516,9 @@ export class Ngram implements INodeType {
 				typeOptions: { rows: 4 },
 				default: '',
 				description:
-					'Public image URLs, one per line. These are processed as uploaded assets rather than prompt text.',
-				displayOptions: {
-					show: {
-						resource: ['video'],
-						operation: ['create', 'createFromText', 'createFromUrl'],
-					},
-				},
+					'Public image URLs, one per line. These are ingested as video sources rather than prompt text.',
+				displayOptions: SHOW_ON_CREATE,
 				routing: { send: { type: 'body', property: 'image_urls' } },
-			},
-			{
-				displayName: 'Scenario Name or ID',
-				name: 'scenario',
-				type: 'options',
-				typeOptions: { loadOptionsMethod: 'listScenarios' },
-				default: '',
-				description:
-					'Canonical scenario ID such as product_launch, explainer_video, changelog. Leave blank for free-form prompts. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-				displayOptions: {
-					show: {
-						resource: ['video'],
-						operation: ['create', 'createFromText', 'createFromUrl'],
-					},
-				},
-				routing: { send: { type: 'body', property: 'scenario' } },
-			},
-			{
-				displayName: 'Video Type Profile Name or ID',
-				name: 'video_type_profile',
-				type: 'options',
-				typeOptions: { loadOptionsMethod: 'listVideoTypeProfiles' },
-				default: '',
-				description:
-					'Optional narrative template — picks one of Ngram\'s prebuilt story patterns (Feature Explainer, Customer Proof Reel, etc.). Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-				displayOptions: {
-					show: {
-						resource: ['video'],
-						operation: ['create', 'createFromText', 'createFromUrl'],
-					},
-				},
-				routing: { send: { type: 'body', property: 'video_type_profile' } },
-			},
-			{
-				displayName: 'Energy Level',
-				name: 'energy_level',
-				type: 'string',
-				default: '',
-				displayOptions: {
-					show: {
-						resource: ['video'],
-						operation: ['create', 'createFromText', 'createFromUrl'],
-					},
-				},
-				routing: { send: { type: 'body', property: 'energy_level' } },
-			},
-			{
-				displayName: 'Story Flow',
-				name: 'story_flow',
-				type: 'string',
-				typeOptions: { rows: 3 },
-				default: '',
-				description:
-					'Optional narrative direction, such as hook, proof points, call to action, or tone. Max 1024 characters.',
-				displayOptions: {
-					show: {
-						resource: ['video'],
-						operation: ['create', 'createFromText', 'createFromUrl'],
-					},
-				},
-				routing: { send: { type: 'body', property: 'story_flow' } },
-			},
-			{
-				displayName: 'Deep Research',
-				name: 'deep_research',
-				type: 'boolean',
-				default: false,
-				description:
-					'Whether to let Ngram spend more time researching source material before generating the video',
-				displayOptions: {
-					show: {
-						resource: ['video'],
-						operation: ['create', 'createFromText', 'createFromUrl'],
-					},
-				},
-				routing: { send: { type: 'body', property: 'deep_research' } },
 			},
 
 			// ---------- Get Status fields ----------
@@ -534,6 +536,14 @@ export class Ngram implements INodeType {
 
 	methods = {
 		loadOptions: {
+			// The models API callers can choose, labelled with their live rate.
+			async listModels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const data = await loadConfig.call(this);
+				return (data.v2_creation?.directors ?? []).map((director) => ({
+					name: `${director.label} — ${director.credits_per_second} credits/sec`,
+					value: director.id,
+				}));
+			},
 			async listVoices(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				const data = await loadConfig.call(this);
 				return data.voices.map((voice) => ({
@@ -543,7 +553,11 @@ export class Ngram implements INodeType {
 			},
 			async listStyles(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				const data = await loadConfig.call(this);
-				return data.styles.map((style) => ({ name: style.label, value: style.id }));
+				return data.styles.map((style) => ({
+					name: style.label,
+					value: style.id,
+					...(style.description ? { description: style.description } : {}),
+				}));
 			},
 			async listDurations(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				const data = await loadConfig.call(this);
@@ -552,26 +566,29 @@ export class Ngram implements INodeType {
 					value: seconds,
 				}));
 			},
-			async listAnimationModes(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+			async listEnergyLevels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				const data = await loadConfig.call(this);
-				if (data.animation_mode_options?.length) {
-					return data.animation_mode_options.map((mode) => ({
-						name: mode.label,
-						value: mode.id,
-						description: `${mode.description} Best for: ${mode.best_for}`,
-					}));
-				}
-				return data.animation_modes.map((mode) => ({ name: humanize(mode), value: mode }));
+				return (data.energy_levels ?? []).map(toOption);
 			},
-			async listScenarios(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+			async listMoods(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				const data = await loadConfig.call(this);
-				return data.scenarios.map((id) => ({ name: humanize(id), value: id }));
+				return (data.moods ?? []).map(toOption);
 			},
-			async listVideoTypeProfiles(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+			async listVoiceLanguages(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				const data = await loadConfig.call(this);
-				return data.video_type_profiles.map((profile) => ({
-					name: `${profile.name} — ${profile.subtitle}`,
-					value: profile.name,
+				return (data.voice_languages ?? []).map((language) => ({
+					name: language.label,
+					value: language.code,
+				}));
+			},
+			async listBrandKits(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const response = (await ngramRequest.call(this, {
+					method: 'GET',
+					url: '/api/v1/brand-kits',
+				})) as { data: { brand_kits?: Array<{ id: string; name: string; is_default: boolean }> } };
+				return (response.data.brand_kits ?? []).map((kit) => ({
+					name: kit.is_default ? `${kit.name} (default)` : kit.name,
+					value: kit.id,
 				}));
 			},
 		},

@@ -1,10 +1,10 @@
 {
-  "name": "Ngram → Post to Slack when any video is ready",
+  "name": "ngram → Post to Slack when any video is ready",
   "nodes": [
     {
       "parameters": {},
       "id": "a1f0c0e0-0000-4000-8000-000000000001",
-      "name": "Ngram: On Video Ready",
+      "name": "ngram: On Video Ready",
       "type": "n8n-nodes-ngram.ngramTriggerCompleted",
       "typeVersion": 1,
       "position": [260, 300],
@@ -26,7 +26,7 @@
           "mode": "name"
         },
         "messageType": "text",
-        "text": "=New Ngram video ready: {{ $json.video_url }} (id: {{ $json.id }})"
+        "text": "=New ngram video ready: {{ $json.video_url }} (id: {{ $json.id }})"
       },
       "id": "a1f0c0e0-0000-4000-8000-000000000002",
       "name": "Post to Slack",
@@ -36,7 +36,7 @@
     }
   ],
   "connections": {
-    "Ngram: On Video Ready": {
+    "ngram: On Video Ready": {
       "main": [[{ "node": "Post to Slack", "type": "main", "index": 0 }]]
     }
   },

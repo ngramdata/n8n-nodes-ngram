@@ -28,6 +28,9 @@ describe('mapStatusResponse', () => {
 			error_message: null,
 			created_at: '2026-04-24T00:00:00.000Z',
 			completed_at: '2026-04-24T00:01:00.000Z',
+			engine: null,
+			app_url: null,
+			warnings: null,
 		});
 	});
 
@@ -67,6 +70,29 @@ describe('mapStatusResponse', () => {
 			error_message: null,
 			created_at: '2026-04-24T00:00:00.000Z',
 			completed_at: null,
+			engine: null,
+			app_url: null,
+			warnings: null,
+		});
+	});
+});
+
+describe('mapStatusResponse V2 engine metadata', () => {
+	it('exposes the engine, server app link, and newline-joined warnings', () => {
+		const output = mapStatusResponse({
+			id: 'vid_v2',
+			status: 'processing',
+			progress: 50,
+			created_at: '2026-09-30T00:00:00.000Z',
+			engine: 'v2',
+			app_url: 'https://www.ngram.com/app/v2/chat/wrun_01K6ABCDEFGHJKMNPQ',
+			warnings: ['animation_mode was ignored.', ' ', 'duration was clamped to 180 seconds.'],
+		});
+
+		expect(output).toMatchObject({
+			engine: 'v2',
+			app_url: 'https://www.ngram.com/app/v2/chat/wrun_01K6ABCDEFGHJKMNPQ',
+			warnings: 'animation_mode was ignored.\nduration was clamped to 180 seconds.',
 		});
 	});
 });
@@ -91,6 +117,9 @@ describe('mapWebhookPayload', () => {
 			error_message: null,
 			created_at: '2026-04-24T00:00:00.000Z',
 			completed_at: '2026-04-24T00:01:00.000Z',
+			engine: null,
+			app_url: null,
+			warnings: null,
 		});
 	});
 
@@ -166,6 +195,9 @@ describe('mapWebhookPayload', () => {
 			error_message: 'Video generation failed',
 			created_at: '2026-04-24T00:00:00.000Z',
 			completed_at: null,
+			engine: null,
+			app_url: null,
+			warnings: null,
 		});
 	});
 });

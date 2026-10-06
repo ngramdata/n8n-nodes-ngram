@@ -35,8 +35,32 @@ interface CreateResponse {
 	};
 }
 
+const ORPHAN_DELETE_CONCURRENCY = 3;
+
+function runWithConcurrency<T>(
+	items: T[],
+	concurrency: number,
+	fn: (item: T) => Promise<void>,
+): Promise<void> {
+	const workerCount = Math.min(Math.max(1, concurrency), items.length);
+	const itemBuckets = Array.from({ length: workerCount }, () => [] as T[]);
+
+	items.forEach((item, index) => {
+		itemBuckets[index % workerCount].push(item);
+	});
+
+	const workers = itemBuckets.map((bucket) =>
+		bucket.reduce<Promise<void>>(
+			(previous, item) => previous.then(() => fn(item)),
+			Promise.resolve(),
+		),
+	);
+
+	return Promise.all(workers).then(() => undefined);
+}
+
 /**
- * Shared webhook lifecycle for the two Ngram triggers (On Video Ready /
+ * Shared webhook lifecycle for the two ngram triggers (On Video Ready /
  * On Video Failed). The backend subscription API is event-type scoped, so each
  * trigger instance only ever needs to worry about its own event_type.
  *
@@ -122,7 +146,7 @@ export function buildWebhookMethods(eventType: EventType) {
 						});
 					} catch (error) {
 						this.logger.warn(
-							'Ngram trigger: failed to delete stored subscription during cleanup',
+							'ngram trigger: failed to delete stored subscription during cleanup',
 							{ error: String(error), eventType, webhookUrl, subscriptionId: storedId },
 						);
 					}
@@ -140,7 +164,7 @@ export function buildWebhookMethods(eventType: EventType) {
 					const orphans = list.data.filter(
 						(row) => row.event_type === eventType && row.target_url === webhookUrl,
 					);
-					for (const row of orphans) {
+					await runWithConcurrency(orphans, ORPHAN_DELETE_CONCURRENCY, async (row) => {
 						try {
 							await ngramRequest.call(this, {
 								method: 'DELETE',
@@ -148,7 +172,7 @@ export function buildWebhookMethods(eventType: EventType) {
 							});
 						} catch (error) {
 							this.logger.warn(
-								'Ngram trigger: failed to delete orphan subscription during sweep',
+								'ngram trigger: failed to delete orphan subscription during sweep',
 								{
 									error: String(error),
 									eventType,
@@ -157,9 +181,9 @@ export function buildWebhookMethods(eventType: EventType) {
 								},
 							);
 						}
-					}
+					});
 				} catch (error) {
-					this.logger.warn('Ngram trigger: orphan-sweep list call failed', {
+					this.logger.warn('ngram trigger: orphan-sweep list call failed', {
 						error: String(error),
 						eventType,
 						webhookUrl,

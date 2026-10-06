@@ -51,12 +51,10 @@
         "operation": "createFromText",
         "prompt": "=Create a concise changelog video for this merged pull request.\n\nTitle: {{ $json.pull_request?.title }}\nAuthor: {{ $json.pull_request?.user?.login }}\nSummary: {{ $json.pull_request?.body ?? 'No PR description provided' }}\nURL: {{ $json.pull_request?.html_url }}",
         "aspect_ratio": "16:9",
-        "duration": 30,
-        "scenario": "changelog",
-        "deep_research": false
+        "duration": 30
       },
       "id": "a1f0c0e0-0000-4000-8000-000000000073",
-      "name": "Create Ngram Video",
+      "name": "Create ngram Video",
       "type": "n8n-nodes-ngram.ngram",
       "typeVersion": 1,
       "position": [820, 220],
@@ -73,7 +71,7 @@
       "main": [[{ "node": "Only Merged PRs", "type": "main", "index": 0 }]]
     },
     "Only Merged PRs": {
-      "main": [[{ "node": "Create Ngram Video", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Create ngram Video", "type": "main", "index": 0 }]]
     }
   },
   "pinData": {},
