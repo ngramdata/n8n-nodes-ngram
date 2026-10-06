@@ -19,6 +19,7 @@ It lets you use Ngram in your n8n workflows.
 - **Action - Create From Text**: turn a prompt or source text into a video.
 - **Action - Create From URL**: research a page, article, product page, or doc and create a video.
 - **Action - Get Status**: check a submitted job by id.
+- **Model choice**: pick the AI model for each video, with its live credits-per-second rate shown in the list.
 - **Trigger - On Video Ready**: instant `video.completed` webhook — no polling loop needed.
 - **Trigger - On Video Failed**: instant `video.failed` webhook, with error code and message.
 - **Signed and reconciled**: every webhook is HMAC-SHA256 signed, and subscriptions are
@@ -74,11 +75,32 @@ Use the credential **Test** button to verify access. It calls
 | `Create From URL` | `website_url` | Job descriptor including `id` and status |
 | `Get Status` | `id` returned by a create operation | Current status and output URLs when ready |
 
-For Studio-equivalent defaults, leave optional creation settings unset. Ngram
-will use regular Video, 60 seconds, 16:9, Hybrid, Style Auto, Calm, YOLO, and
-the default voice. Select **Short Video** explicitly for a silent, 15-second
-Hybrid video. Add public image assets under **Image URLs**, one URL per line,
-rather than placing the URLs only in the prompt.
+### Create settings
+
+The three create operations share these optional settings. Leave any of them
+empty to let ngram choose. The dropdowns load live from your ngram account.
+
+| Field | Sent as | Notes |
+| --- | --- | --- |
+| `Model` | `director_model` | The AI model that makes the video. Each option shows its live rate in credits per second, so the price depends on the model you pick. Leave empty to use your account's default model. |
+| `Voice` | `voice_id` | The narrator, or **No voiceover** for a silent video. |
+| `Style` | `style_id` | The look of the video. **Auto** lets ngram choose. |
+| `Aspect Ratio` | `aspect_ratio` | `16:9`, `9:16`, or `1:1`. |
+| `Duration` | `duration` | Pick a suggested length, or use an expression for any length of at least 1 second. Leave empty for **Auto**. |
+| `Energy` | `energy_level` | The pace of the video. |
+| `Mood` | `mood` | The emotional tone. **Auto** lets ngram choose. |
+| `Narration Language` | `voice_language` | The language the narration is spoken in. Leave empty to match the prompt. |
+| `Brand Kit` | `brand_kit` | Apply one of your ngram Brand Kits (colors, fonts, and logo). |
+| `Video Format` | `video_format` | **Video** (the default) or **Short Video**, a video without narration. |
+| `Image URLs` | `image_urls` | Public image URLs, one per line, used as video sources rather than prompt text. |
+
+Creating videos through the API needs a paid ngram plan. When ngram turns a
+request down, for example because the account is on the Free plan or a setting
+is invalid, the node shows ngram's own message, including the field it rejected,
+instead of a generic HTTP error.
+
+`Get Status` also returns `app_url`, a link that opens the video in ngram, and
+`warnings`, one line per input ngram ignored or adjusted.
 
 ### Trigger nodes
 
