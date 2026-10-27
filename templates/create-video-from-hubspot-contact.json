@@ -1,5 +1,6 @@
 {
   "name": "Generate an ngram video for each new HubSpot contact",
+  "active": false,
   "nodes": [
     {
       "parameters": {
@@ -44,6 +45,5 @@
     }
   },
   "pinData": {},
-  "settings": {},
-  "tags": ["ngram", "video", "hubspot"]
+  "settings": {}
 }

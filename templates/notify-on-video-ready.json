@@ -1,5 +1,6 @@
 {
   "name": "ngram → Post to Slack when any video is ready",
+  "active": false,
   "nodes": [
     {
       "parameters": {},
@@ -41,6 +42,5 @@
     }
   },
   "pinData": {},
-  "settings": {},
-  "tags": ["ngram", "video"]
+  "settings": {}
 }

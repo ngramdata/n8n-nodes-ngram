@@ -14,6 +14,7 @@ import {
 	loadConfig,
 	ngramPackageNodeLoaders,
 	stripEmptyBodyFields,
+	normalizeIdempotencyKey,
 	throwApiErrorPostReceive,
 } from '../nodes/Ngram/Ngram.node';
 import { buildHookContext } from './helpers/mock-context';
@@ -57,6 +58,7 @@ function findFieldsForOperation(node: Ngram, operation: string): INodeProperties
 	return node.description.properties.filter((p) => {
 		const show = p.displayOptions?.show;
 		return (
+			p.name !== 'idempotency_key' &&
 			p.name !== 'resource' &&
 			p.name !== 'operation' &&
 			show?.resource?.includes('video') &&
@@ -276,6 +278,22 @@ describe('stripEmptyBodyFields preSend', () => {
 		);
 
 		expect(result.body).toBe('not-an-object');
+	});
+});
+
+describe('creation idempotency', () => {
+	const context = (value: unknown) => ({ getNodeParameter: () => value, getNode: () => ({ name: 'Create video', type: 'n8n-nodes-ngram.ngram' }) }) as unknown as IExecuteSingleFunctions;
+	it('sends the stable source-event key as a header without altering the brief', async () => {
+		const result = await normalizeIdempotencyKey.call(context(' github:repo:pr:42 '), { method: 'POST', url: '/api/v1/videos', body: { prompt: 'Release update' } });
+		expect(result.headers?.['Idempotency-Key']).toBe('github:repo:pr:42');
+		expect(result.body).toEqual({ prompt: 'Release update' });
+	});
+	it('omits whitespace-only keys and rejects invalid keys before making a request', async () => {
+		const blank = await normalizeIdempotencyKey.call(context('   '), { method: 'POST', url: '/api/v1/videos', headers: {} });
+		expect(blank.headers).not.toHaveProperty('Idempotency-Key');
+		for (const value of ['x'.repeat(129), 'line\nbreak', 42]) {
+			await expect(normalizeIdempotencyKey.call(context(value), { method: 'POST', url: '/api/v1/videos' })).rejects.toThrow('Idempotency Key');
+		}
 	});
 });
 

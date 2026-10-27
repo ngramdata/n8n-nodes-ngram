@@ -1,5 +1,6 @@
 {
   "name": "RSS item -> Create ngram video",
+  "active": false,
   "nodes": [
     {
       "parameters": {
@@ -46,6 +47,5 @@
     }
   },
   "pinData": {},
-  "settings": {},
-  "tags": ["ngram", "video", "rss"]
+  "settings": {}
 }

@@ -1,5 +1,6 @@
 {
   "name": "Google Sheets row -> Create ngram video",
+  "active": false,
   "nodes": [
     {
       "parameters": {
@@ -56,6 +57,5 @@
     }
   },
   "pinData": {},
-  "settings": {},
-  "tags": ["ngram", "video", "google-sheets"]
+  "settings": {}
 }

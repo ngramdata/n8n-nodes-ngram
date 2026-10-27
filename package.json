@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-ngram",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "Generate polished AI videos from prompts, URLs, docs, and product content in n8n workflows.",
 	"keywords": [
 		"n8n-community-node-package",
@@ -35,7 +35,8 @@
 		"lint": "eslint nodes credentials src",
 		"lint:fix": "eslint nodes credentials src --fix",
 		"typecheck": "tsc --noEmit",
-		"test": "vitest run"
+		"test": "vitest run",
+		"test:engine": "node scripts/check-workflows-in-engine.mjs"
 	},
 	"peerDependencies": {
 		"n8n-workflow": "*"

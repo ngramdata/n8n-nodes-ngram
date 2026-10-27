@@ -75,6 +75,13 @@ Use the credential **Test** button to verify access. It calls
 | `Create From URL` | `website_url` | Job descriptor including `id` and status |
 | `Get Status` | `id` returned by a create operation | Current status and output URLs when ready |
 
+For event-triggered creation, set **Idempotency Key** to a stable identifier for
+one source event (at most 128 characters). For example, use the repository and
+pull-request number for a merged-PR event. Repeated deliveries with the same key
+return the original job instead of starting another video. Use a different key
+when you intentionally create a new version; leave it blank for independent runs.
+The same key returns the original job even if the brief has changed.
+
 ### Create settings
 
 The three create operations share these optional settings. Leave any of them

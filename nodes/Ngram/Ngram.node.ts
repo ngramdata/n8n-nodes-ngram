@@ -112,6 +112,21 @@ export async function stripEmptyBodyFields(
 	return requestOptions;
 }
 
+/** Keep repeated deliveries of one source event on the API's existing job. */
+export async function normalizeIdempotencyKey(
+	this: IExecuteSingleFunctions,
+	requestOptions: IHttpRequestOptions,
+): Promise<IHttpRequestOptions> {
+	const value = this.getNodeParameter('idempotency_key', '');
+	if (value === undefined || value === null || value === '') return requestOptions;
+	if (typeof value !== 'string' || value.trim().length > 128 || /[\r\n]/.test(value)) {
+		throw new NodeOperationError(this.getNode(), 'Idempotency Key must be text of at most 128 characters without line breaks.');
+	}
+	const key = value.trim();
+	if (key) requestOptions.headers = { ...requestOptions.headers, 'Idempotency-Key': key };
+	return requestOptions;
+}
+
 interface NgramApiErrorBody {
 	error?: {
 		message?: string;
@@ -243,7 +258,7 @@ export class Ngram implements INodeType {
 								ignoreHttpStatusErrors: true,
 							},
 							send: {
-								preSend: [stripEmptyBodyFields],
+								preSend: [stripEmptyBodyFields, normalizeIdempotencyKey],
 							},
 							output: {
 								postReceive: [
@@ -269,7 +284,7 @@ export class Ngram implements INodeType {
 								ignoreHttpStatusErrors: true,
 							},
 							send: {
-								preSend: [stripEmptyBodyFields],
+								preSend: [stripEmptyBodyFields, normalizeIdempotencyKey],
 							},
 							output: {
 								postReceive: [
@@ -295,7 +310,7 @@ export class Ngram implements INodeType {
 								ignoreHttpStatusErrors: true,
 							},
 							send: {
-								preSend: [stripEmptyBodyFields],
+								preSend: [stripEmptyBodyFields, normalizeIdempotencyKey],
 							},
 							output: {
 								postReceive: [
@@ -519,6 +534,15 @@ export class Ngram implements INodeType {
 					'Public image URLs, one per line. These are ingested as video sources rather than prompt text.',
 				displayOptions: SHOW_ON_CREATE,
 				routing: { send: { type: 'body', property: 'image_urls' } },
+			},
+
+			{
+				displayName: 'Idempotency Key',
+				name: 'idempotency_key',
+				type: 'string',
+				default: '',
+				description: 'A stable key for one source event, up to 128 characters. Reusing the key returns the original job. Use a new key for a new video; leave blank for independent runs.',
+				displayOptions: SHOW_ON_CREATE,
 			},
 
 			// ---------- Get Status fields ----------
