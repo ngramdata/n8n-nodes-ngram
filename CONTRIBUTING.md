@@ -49,3 +49,18 @@ Please include:
 - Whether you are using n8n Cloud, self-hosted Docker, or another setup.
 - Steps to reproduce the issue.
 - Any relevant error output with secrets removed.
+
+## Internal workflow checks
+
+After building, run `pnpm test:engine <report-directory>` with Docker running.
+The report directory must be on a filesystem Docker can mount. The check uses a
+pinned official n8n image, imports all eight starters inactive, and executes the
+current node against a simulated API on a temporary internal Docker network.
+It checks text/URL creation, status handling, rejected inputs, the merged-PR
+condition and repeated-event keys. It uses no production credentials or cloud
+workspace and sends no notifications or social posts. Temporary containers,
+database volume and network are removed at the end; logs stay in the report
+directory.
+
+This proves the import and automation logic. It does not prove live video
+creation, third-party authorization or delivery to an external destination.

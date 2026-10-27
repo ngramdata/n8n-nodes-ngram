@@ -1,5 +1,6 @@
 {
   "name": "Notify via SMS when an ngram video fails",
+  "active": false,
   "nodes": [
     {
       "parameters": {},
@@ -36,6 +37,5 @@
     }
   },
   "pinData": {},
-  "settings": {},
-  "tags": ["ngram", "video", "twilio"]
+  "settings": {}
 }
