@@ -27,6 +27,12 @@ export const ngramPackageNodeLoaders = [
 // passing "foo/../account" would otherwise hit /api/v1/account with the
 // connected API key attached).
 const VIDEO_ID_PATTERN = /^vid_[A-Za-z0-9_-]+$/;
+// The same rule for the other ids that land in a path or body.
+const LOCALIZATION_ID_PATTERN = /^loc_[A-Za-z0-9_-]+$/;
+const ASSET_ID_PATTERN = /^ast_[A-Za-z0-9_-]+$/;
+const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}(-[a-z0-9]{2,8}){0,2}$/;
+/** The most languages one localization request takes. */
+export const MAX_LOCALIZATION_LANGUAGES = 20;
 
 interface NgramOption {
 	id: string;
@@ -201,6 +207,149 @@ export async function buildGetStatusUrl(
 	return requestOptions;
 }
 
+function requireId(
+	ctx: IExecuteSingleFunctions,
+	parameter: string,
+	pattern: RegExp,
+	label: string,
+	example: string,
+): string {
+	const value = String(ctx.getNodeParameter(parameter) ?? '').trim();
+	if (!pattern.test(value)) {
+		throw new NodeOperationError(
+			ctx.getNode(),
+			`Invalid ${label}: ${JSON.stringify(value)} — expected a value like "${example}".`,
+		);
+	}
+	return value;
+}
+
+/** Comma- or newline-separated language codes, as the API takes them (e.g. "es, pt-br, ja"). */
+export function parseLanguages(ctx: IExecuteSingleFunctions): string[] {
+	const raw = ctx.getNodeParameter('languages');
+	const listed = (Array.isArray(raw) ? raw.map(String) : String(raw ?? '').split(/[\n,]/))
+		.map((code) => code.trim().toLowerCase().replace(/_/g, '-'))
+		.filter(Boolean);
+	const invalid = listed.filter((code) => !LANGUAGE_CODE_PATTERN.test(code));
+	if (invalid.length > 0) {
+		throw new NodeOperationError(
+			ctx.getNode(),
+			`Invalid language code: ${invalid.join(', ')} — use codes such as "es", "fr" or "pt-br".`,
+		);
+	}
+	const languages = [...new Set(listed)];
+	if (languages.length === 0 || languages.length > MAX_LOCALIZATION_LANGUAGES) {
+		throw new NodeOperationError(
+			ctx.getNode(),
+			`List between 1 and ${MAX_LOCALIZATION_LANGUAGES} languages.`,
+		);
+	}
+	return languages;
+}
+
+/**
+ * A localization spends credits, so ngram requires an Idempotency-Key: a retry with the same key returns the same
+ * localization and never bills a language twice. A quote changes nothing and needs none.
+ */
+function withIdempotencyKey(
+	ctx: IExecuteSingleFunctions,
+	requestOptions: IHttpRequestOptions,
+	quote: boolean,
+): IHttpRequestOptions {
+	if (quote) return requestOptions;
+	const key = String(ctx.getNodeParameter('idempotencyKey', '') ?? '').trim();
+	if (!key || key.length > 128) {
+		throw new NodeOperationError(
+			ctx.getNode(),
+			'Set an Idempotency Key (up to 128 characters). Reuse it to retry without being charged twice.',
+		);
+	}
+	requestOptions.headers = { ...(requestOptions.headers ?? {}), 'Idempotency-Key': key };
+	return requestOptions;
+}
+
+/** POST /api/v1/videos/{id}:localize — one translated copy per language, or a dub of the audio only. */
+export async function buildLocalizeVideoRequest(
+	this: IExecuteSingleFunctions,
+	requestOptions: IHttpRequestOptions,
+): Promise<IHttpRequestOptions> {
+	const videoId = requireId(this, 'videoId', VIDEO_ID_PATTERN, 'video ID', 'vid_...');
+	const languages = parseLanguages(this);
+	const quote = this.getNodeParameter('quoteOnly', false) === true;
+	const audioOnly = this.getNodeParameter('localizeMode', 'translate') === 'dub';
+	requestOptions.url = `/api/v1/videos/${encodeURIComponent(videoId)}:localize`;
+	requestOptions.body = {
+		languages,
+		...(audioOnly ? { lip_sync: false } : {}),
+		...(quote ? { quote: true } : {}),
+	};
+	return withIdempotencyKey(this, requestOptions, quote);
+}
+
+/** POST /api/v1/localizations — dub an uploaded video or a YouTube/TikTok link into each language. */
+export async function buildLocalizeMediaRequest(
+	this: IExecuteSingleFunctions,
+	requestOptions: IHttpRequestOptions,
+): Promise<IHttpRequestOptions> {
+	const fromLink = this.getNodeParameter('sourceType', 'asset') === 'link';
+	const source = fromLink
+		? { link: String(this.getNodeParameter('sourceLink') ?? '').trim() }
+		: { asset_id: requireId(this, 'assetId', ASSET_ID_PATTERN, 'asset ID', 'ast_...') };
+	if (fromLink && !/^https:\/\//i.test(source.link ?? '')) {
+		throw new NodeOperationError(this.getNode(), 'Enter the video link, starting with https://.');
+	}
+	const languages = parseLanguages(this);
+	const quote = this.getNodeParameter('quoteOnly', false) === true;
+	const sourceLanguage = String(this.getNodeParameter('sourceLanguage', '') ?? '').trim().toLowerCase();
+	requestOptions.url = '/api/v1/localizations';
+	requestOptions.body = {
+		source,
+		languages,
+		...(sourceLanguage ? { source_language: sourceLanguage } : {}),
+		...(this.getNodeParameter('lipSync', false) === true ? { lip_sync: true } : {}),
+		...(fromLink && this.getNodeParameter('confirmRights', false) === true ? { confirm_rights: true } : {}),
+		...(quote ? { quote: true } : {}),
+	};
+	return withIdempotencyKey(this, requestOptions, quote);
+}
+
+/** GET /api/v1/localizations/{id} */
+export async function buildGetLocalizationUrl(
+	this: IExecuteSingleFunctions,
+	requestOptions: IHttpRequestOptions,
+): Promise<IHttpRequestOptions> {
+	const id = requireId(this, 'localizationId', LOCALIZATION_ID_PATTERN, 'localization ID', 'loc_...');
+	requestOptions.url = `/api/v1/localizations/${encodeURIComponent(id)}`;
+	return requestOptions;
+}
+
+/**
+ * POST /api/v1/videos/{id}/exports — free. The same video, resolution and captions return the same export, so running
+ * it again reports the export's status and, once ready, its url.
+ */
+export async function buildExportVideoRequest(
+	this: IExecuteSingleFunctions,
+	requestOptions: IHttpRequestOptions,
+): Promise<IHttpRequestOptions> {
+	const videoId = requireId(this, 'videoId', VIDEO_ID_PATTERN, 'video ID', 'vid_...');
+	const captions = String(this.getNodeParameter('captions', '') ?? '');
+	requestOptions.url = `/api/v1/videos/${encodeURIComponent(videoId)}/exports`;
+	requestOptions.body = {
+		resolution: String(this.getNodeParameter('resolution', '1080p')),
+		...(captions ? { captions } : {}),
+	};
+	return requestOptions;
+}
+
+const API_ERRORS_THEN_DATA = [
+	throwApiErrorPostReceive,
+	{ type: 'rootProperty' as const, properties: { property: 'data' } },
+];
+
+const SHOW_ON_LOCALIZE = {
+	show: { resource: ['video'], operation: ['localizeVideo', 'localizeMedia'] },
+};
+
 export class Ngram implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'ngram',
@@ -210,7 +359,8 @@ export class Ngram implements INodeType {
 		version: 1,
 		usableAsTool: true,
 		subtitle: '={{ $parameter["operation"] }}: {{ $parameter["resource"] }}',
-		description: 'Generate AI videos from prompts, text, and URLs, then check render status.',
+		description:
+			'Generate AI videos from prompts, text, and URLs, check render status, export MP4s and localize videos into other languages.',
 		defaults: {
 			name: 'ngram',
 		},
@@ -324,6 +474,30 @@ export class Ngram implements INodeType {
 						},
 					},
 					{
+						name: 'Export Video',
+						value: 'exportVideo',
+						action: 'Export a video as an MP4',
+						description:
+							'Export the newest version of a video as an MP4 at the resolution you choose (free). Run it again with the same settings to see whether the export is ready and get its URL.',
+						routing: {
+							request: { method: 'POST', url: '/api/v1/videos', ignoreHttpStatusErrors: true },
+							send: { preSend: [buildExportVideoRequest] },
+							output: { postReceive: API_ERRORS_THEN_DATA },
+						},
+					},
+					{
+						name: 'Get Localization',
+						value: 'getLocalization',
+						action: 'Get localization status',
+						description:
+							'Look up each language of a localization: its status and, once done, its translated video or dubbed file',
+						routing: {
+							request: { method: 'GET', url: '/api/v1/localizations', ignoreHttpStatusErrors: true },
+							send: { preSend: [buildGetLocalizationUrl] },
+							output: { postReceive: API_ERRORS_THEN_DATA },
+						},
+					},
+					{
 						name: 'Get Status',
 						value: 'getStatus',
 						action: 'Get video status',
@@ -341,6 +515,30 @@ export class Ngram implements INodeType {
 							output: {
 								postReceive: [flattenStatusPostReceive],
 							},
+						},
+					},
+					{
+						name: 'Localize Media',
+						value: 'localizeMedia',
+						action: 'Dub an uploaded video or link',
+						description:
+							'Dub one of your uploaded videos, or a YouTube or TikTok video you have the rights to, into up to 20 languages in the speakers\' own voices. Spends credits at Video Dubbing prices; follow it with Get Localization.',
+						routing: {
+							request: { method: 'POST', url: '/api/v1/localizations', ignoreHttpStatusErrors: true },
+							send: { preSend: [buildLocalizeMediaRequest] },
+							output: { postReceive: API_ERRORS_THEN_DATA },
+						},
+					},
+					{
+						name: 'Localize Video',
+						value: 'localizeVideo',
+						action: 'Localize a video into other languages',
+						description:
+							'Make a version of an ngram video in up to 20 languages: a new translated video per language, or a dub of the audio only. Spends credits per language; follow it with Get Localization.',
+						routing: {
+							request: { method: 'POST', url: '/api/v1/videos', ignoreHttpStatusErrors: true },
+							send: { preSend: [buildLocalizeVideoRequest] },
+							output: { postReceive: API_ERRORS_THEN_DATA },
 						},
 					},
 				],
@@ -545,7 +743,7 @@ export class Ngram implements INodeType {
 				displayOptions: SHOW_ON_CREATE,
 			},
 
-			// ---------- Get Status fields ----------
+			// ---------- Get Status, Export Video and Localize Video fields ----------
 			{
 				displayName: 'Video ID',
 				name: 'videoId',
@@ -553,7 +751,161 @@ export class Ngram implements INodeType {
 				required: true,
 				default: '',
 				description: 'The vid_... ID returned by Create Video.',
-				displayOptions: { show: { resource: ['video'], operation: ['getStatus'] } },
+				displayOptions: {
+					show: { resource: ['video'], operation: ['getStatus', 'exportVideo', 'localizeVideo'] },
+				},
+			},
+
+			// ---------- Export Video fields ----------
+			{
+				displayName: 'Resolution',
+				name: 'resolution',
+				type: 'options',
+				options: [
+					{ name: '1080p', value: '1080p' },
+					{ name: '2K', value: '2k' },
+					{ name: '4K', value: '4k' },
+					{ name: '720p', value: '720p' },
+				],
+				default: '1080p',
+				description:
+					'The MP4\'s resolution. Your ngram plan sets which ones you can export; another is refused with the allowed list.',
+				displayOptions: { show: { resource: ['video'], operation: ['exportVideo'] } },
+			},
+			{
+				displayName: 'Captions',
+				name: 'captions',
+				type: 'options',
+				options: [
+					{ name: 'Burned In', value: 'burned' },
+					{ name: 'None', value: 'none' },
+					{ name: 'Use the Video\'s Setting', value: '' },
+				],
+				default: '',
+				displayOptions: { show: { resource: ['video'], operation: ['exportVideo'] } },
+			},
+
+			// ---------- Localize fields ----------
+			{
+				displayName: 'Mode',
+				name: 'localizeMode',
+				type: 'options',
+				options: [
+					{
+						name: 'Dub the Audio Only',
+						value: 'dub',
+						description:
+							'Keep the finished video\'s visuals and replace only its narration, one dubbed MP4 per language, at Video Dubbing prices',
+					},
+					{
+						name: 'New Video per Language',
+						value: 'translate',
+						description:
+							'A translated copy of the video per language, keeping its scenes and presenter (lip-synced)',
+					},
+				],
+				default: 'translate',
+				displayOptions: { show: { resource: ['video'], operation: ['localizeVideo'] } },
+			},
+			{
+				displayName: 'Source',
+				name: 'sourceType',
+				type: 'options',
+				options: [
+					{ name: 'Uploaded Video', value: 'asset' },
+					{ name: 'YouTube or TikTok Link', value: 'link' },
+				],
+				default: 'asset',
+				displayOptions: { show: { resource: ['video'], operation: ['localizeMedia'] } },
+			},
+			{
+				displayName: 'Asset ID',
+				name: 'assetId',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'The ast_... ID of a video you uploaded to ngram.',
+				displayOptions: {
+					show: { resource: ['video'], operation: ['localizeMedia'], sourceType: ['asset'] },
+				},
+			},
+			{
+				displayName: 'Video Link',
+				name: 'sourceLink',
+				type: 'string',
+				required: true,
+				default: '',
+				placeholder: 'https://www.youtube.com/watch?v=...',
+				displayOptions: {
+					show: { resource: ['video'], operation: ['localizeMedia'], sourceType: ['link'] },
+				},
+			},
+			{
+				displayName: 'I Have the Right to Dub This Video',
+				name: 'confirmRights',
+				type: 'boolean',
+				default: false,
+				description: 'Whether you confirm you may dub the linked video. ngram refuses a link without it.',
+				displayOptions: {
+					show: { resource: ['video'], operation: ['localizeMedia'], sourceType: ['link'] },
+				},
+			},
+			{
+				displayName: 'Languages',
+				name: 'languages',
+				type: 'string',
+				required: true,
+				default: '',
+				placeholder: 'es, fr, pt-br',
+				description: 'Up to 20 language codes, separated by commas or new lines',
+				displayOptions: SHOW_ON_LOCALIZE,
+			},
+			{
+				displayName: 'Spoken Language',
+				name: 'sourceLanguage',
+				type: 'string',
+				default: '',
+				placeholder: 'en',
+				description: 'The language spoken in the video. Leave empty to detect it.',
+				displayOptions: { show: { resource: ['video'], operation: ['localizeMedia'] } },
+			},
+			{
+				displayName: 'Lip Sync',
+				name: 'lipSync',
+				type: 'boolean',
+				default: false,
+				description:
+					'Whether to re-animate the speakers\' lips to each language (videos up to 30 minutes, at Lip Sync prices on top)',
+				displayOptions: { show: { resource: ['video'], operation: ['localizeMedia'] } },
+			},
+			{
+				displayName: 'Quote Only',
+				name: 'quoteOnly',
+				type: 'boolean',
+				default: false,
+				description:
+					'Whether to return the expected credits for each language and make nothing',
+				displayOptions: SHOW_ON_LOCALIZE,
+			},
+			{
+				displayName: 'Idempotency Key',
+				name: 'idempotencyKey',
+				type: 'string',
+				default: '={{ $execution.id + "-" + $itemIndex }}',
+				description:
+					'A retry with the same key returns the same localization and never charges a language twice. The default is unique to this run and item.',
+				displayOptions: SHOW_ON_LOCALIZE,
+			},
+
+			// ---------- Get Localization fields ----------
+			{
+				displayName: 'Localization ID',
+				name: 'localizationId',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'The loc_... ID returned by Localize Video or Localize Media.',
+				displayOptions: { show: { resource: ['video'], operation: ['getLocalization'] } },
 			},
 		],
 	};

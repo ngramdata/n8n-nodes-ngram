@@ -19,6 +19,10 @@ It lets you use ngram in your n8n workflows.
 - **Action - Create From Text**: turn a prompt or source text into a video.
 - **Action - Create From URL**: research a page, article, product page, or doc and create a video.
 - **Action - Get Status**: check a submitted job by id.
+- **Action - Export Video**: export a video as an MP4 at the resolution your plan allows (free).
+- **Action - Localize Video**: make a version of an ngram video in up to 20 languages, as a new translated video per language or a dub of the audio only.
+- **Action - Localize Media**: dub an uploaded video, or a YouTube or TikTok video you have the rights to, into up to 20 languages.
+- **Action - Get Localization**: check each language of a localization.
 - **Model choice**: pick the AI model for each video, with its live credits-per-second rate shown in the list.
 - **Trigger - On Video Ready**: instant `video.completed` webhook — no polling loop needed.
 - **Trigger - On Video Failed**: instant `video.failed` webhook, with error code and message.
@@ -74,6 +78,30 @@ Use the credential **Test** button to verify access. It calls
 | `Create From Text` | `prompt` | Job descriptor including `id` and status |
 | `Create From URL` | `website_url` | Job descriptor including `id` and status |
 | `Get Status` | `id` returned by a create operation | Current status and output URLs when ready |
+| `Export Video` | `Video ID`, `Resolution` | The export's `status` and, once `ready`, its `url` |
+| `Localize Video` | `Video ID`, `Languages` | A localization (`loc_` id) with a status per language |
+| `Localize Media` | An uploaded video's `Asset ID` or a YouTube/TikTok link, `Languages` | A localization (`loc_` id) with a status per language |
+| `Get Localization` | `Localization ID` | Each language's status and its translated `video_id` or dubbed file in `output` |
+
+### Export and localize
+
+- `Export Video` is free. Your ngram plan sets which resolutions you can export,
+  and another is refused with the list you can use. Running it again with the
+  same video, resolution and captions returns the same export, so you can loop
+  on it until `status` is `ready` and then download `url` with your API key.
+- `Localize Video` and `Localize Media` spend credits for each language. Turn
+  on `Quote Only` to see the expected credits first. Both send an
+  `Idempotency Key` (by default unique to the run and item): a retry with the
+  same key returns the same localization and never charges a language twice.
+- `Localize Video` in **New Video per Language** mode makes a translated copy
+  of the video in each language, keeping its scenes and presenter. **Dub the
+  Audio Only** keeps the finished video's visuals and replaces its narration,
+  one dubbed MP4 per language, at Video Dubbing prices.
+- `Localize Media` dubs an uploaded video (its `ast_` id) or a YouTube or
+  TikTok link. A link needs `I Have the Right to Dub This Video` turned on.
+  `Lip Sync` re-animates the speakers' lips (videos up to 30 minutes).
+- Follow either one with `Get Localization` (every few seconds, with a `Wait`
+  node) until its `status` is no longer `processing`.
 
 For event-triggered creation, set **Idempotency Key** to a stable identifier for
 one source event (at most 128 characters). For example, use the repository and

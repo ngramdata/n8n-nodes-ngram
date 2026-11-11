@@ -10,7 +10,11 @@ import {
 } from 'n8n-workflow';
 import {
 	Ngram,
+	buildExportVideoRequest,
+	buildGetLocalizationUrl,
 	buildGetStatusUrl,
+	buildLocalizeMediaRequest,
+	buildLocalizeVideoRequest,
 	loadConfig,
 	ngramPackageNodeLoaders,
 	stripEmptyBodyFields,
@@ -25,6 +29,16 @@ function buildExecuteSingleCtx(videoId: unknown): IExecuteSingleFunctions {
 		getNode: () => ({ name: 'Ngram', type: 'n8n-nodes-ngram.ngram' }),
 	} as unknown as IExecuteSingleFunctions;
 }
+
+/** A hook context whose parameters come from `parameters`; an unset one returns the caller's fallback. */
+function buildParamsCtx(parameters: Record<string, unknown>): IExecuteSingleFunctions {
+	return {
+		getNodeParameter: (name: string, fallback?: unknown) => (name in parameters ? parameters[name] : fallback),
+		getNode: () => ({ name: 'Ngram', type: 'n8n-nodes-ngram.ngram' }),
+	} as unknown as IExecuteSingleFunctions;
+}
+
+const POST_VIDEOS: IHttpRequestOptions = { method: 'POST', url: '/api/v1/videos' };
 
 const EXPECTED_CREATE_FIELDS = [
 	'prompt',
@@ -410,6 +424,123 @@ describe('buildGetStatusUrl preSend', () => {
 			url: '/api/v1/videos',
 		});
 		expect(result.url).toBe('/api/v1/videos/vid_trimmed');
+	});
+});
+
+describe('localization and export requests', () => {
+	const node = new Ngram();
+
+	it('reports API errors from every localization and export operation, then returns the data', () => {
+		const operation = node.description.properties.find((p) => p.name === 'operation');
+		const options = (
+			operation?.options as Array<{
+				value: string;
+				routing?: { request?: { ignoreHttpStatusErrors?: boolean }; output?: { postReceive?: unknown[] } };
+			}>
+		).filter((option) => ['localizeVideo', 'localizeMedia', 'getLocalization', 'exportVideo'].includes(option.value));
+
+		expect(options).toHaveLength(4);
+		for (const option of options) {
+			expect(option.routing?.request?.ignoreHttpStatusErrors).toBe(true);
+			expect(option.routing?.output?.postReceive?.[0]).toBe(throwApiErrorPostReceive);
+			expect(option.routing?.output?.postReceive?.[1]).toMatchObject({ properties: { property: 'data' } });
+		}
+	});
+
+	it('Localize Video sends the languages once each with the key, and lip_sync false for an audio-only dub', async () => {
+		const translate = await buildLocalizeVideoRequest.call(
+			buildParamsCtx({ videoId: ' vid_abc ', languages: 'ES, fr\npt_BR, es', idempotencyKey: 'run-1-0' }),
+			{ ...POST_VIDEOS },
+		);
+		expect(translate.url).toBe('/api/v1/videos/vid_abc:localize');
+		expect(translate.body).toEqual({ languages: ['es', 'fr', 'pt-br'] });
+		expect(translate.headers).toMatchObject({ 'Idempotency-Key': 'run-1-0' });
+
+		const dub = await buildLocalizeVideoRequest.call(
+			buildParamsCtx({ videoId: 'vid_abc', languages: 'de', localizeMode: 'dub', idempotencyKey: 'k' }),
+			{ ...POST_VIDEOS },
+		);
+		expect(dub.body).toEqual({ languages: ['de'], lip_sync: false });
+	});
+
+	it('Localize Video quotes without a key, and refuses a missing key, bad codes, too many languages or a bad id', async () => {
+		const quote = await buildLocalizeVideoRequest.call(
+			buildParamsCtx({ videoId: 'vid_abc', languages: 'es', quoteOnly: true, idempotencyKey: '' }),
+			{ ...POST_VIDEOS },
+		);
+		expect(quote.body).toEqual({ languages: ['es'], quote: true });
+		expect(quote.headers?.['Idempotency-Key']).toBeUndefined();
+
+		const many = Array.from({ length: 21 }, (_, index) => `l${String.fromCharCode(97 + index)}`).join(',');
+		for (const [parameters, message] of [
+			[{ videoId: 'vid_abc', languages: 'es', idempotencyKey: ' ' }, /Idempotency Key/],
+			[{ videoId: 'vid_abc', languages: 'es, spanish!', idempotencyKey: 'k' }, /Invalid language code: spanish!/],
+			[{ videoId: 'vid_abc', languages: many, idempotencyKey: 'k' }, /between 1 and 20/],
+			[{ videoId: 'vid_abc', languages: ' , ', idempotencyKey: 'k' }, /between 1 and 20/],
+			[{ videoId: 'vid_abc/../account', languages: 'es', idempotencyKey: 'k' }, /Invalid video ID/],
+		] as const) {
+			await expect(buildLocalizeVideoRequest.call(buildParamsCtx(parameters), { ...POST_VIDEOS })).rejects.toThrow(
+				message,
+			);
+		}
+	});
+
+	it('Localize Media dubs an upload or a confirmed link, and refuses a bad asset id or a non-https link', async () => {
+		const upload = await buildLocalizeMediaRequest.call(
+			buildParamsCtx({ assetId: 'ast_123', languages: 'es', lipSync: true, sourceLanguage: 'EN', idempotencyKey: 'k' }),
+			{ ...POST_VIDEOS },
+		);
+		expect(upload.url).toBe('/api/v1/localizations');
+		expect(upload.body).toEqual({ source: { asset_id: 'ast_123' }, languages: ['es'], source_language: 'en', lip_sync: true });
+		expect(upload.headers).toMatchObject({ 'Idempotency-Key': 'k' });
+
+		const link = await buildLocalizeMediaRequest.call(
+			buildParamsCtx({
+				sourceType: 'link',
+				sourceLink: 'https://youtu.be/abc',
+				confirmRights: true,
+				languages: 'fr',
+				idempotencyKey: 'k',
+			}),
+			{ ...POST_VIDEOS },
+		);
+		expect(link.body).toEqual({ source: { link: 'https://youtu.be/abc' }, languages: ['fr'], confirm_rights: true });
+
+		await expect(
+			buildLocalizeMediaRequest.call(buildParamsCtx({ assetId: 'vid_abc', languages: 'es', idempotencyKey: 'k' }), {
+				...POST_VIDEOS,
+			}),
+		).rejects.toThrow(/Invalid asset ID/);
+		await expect(
+			buildLocalizeMediaRequest.call(
+				buildParamsCtx({ sourceType: 'link', sourceLink: 'javascript:alert(1)', languages: 'es', idempotencyKey: 'k' }),
+				{ ...POST_VIDEOS },
+			),
+		).rejects.toThrow(/https/);
+	});
+
+	it('Get Localization builds a safe path and refuses ids that would rewrite it', async () => {
+		const ok = await buildGetLocalizationUrl.call(buildParamsCtx({ localizationId: ' loc_abc-_1 ' }), {
+			method: 'GET',
+			url: '/api/v1/localizations',
+		});
+		expect(ok.url).toBe('/api/v1/localizations/loc_abc-_1');
+		for (const attack of ['loc_abc/../../account', 'vid_abc', 'loc_', '']) {
+			await expect(
+				buildGetLocalizationUrl.call(buildParamsCtx({ localizationId: attack }), { method: 'GET', url: '/' }),
+			).rejects.toThrow(/Invalid localization ID/);
+		}
+	});
+
+	it('Export Video asks for the chosen resolution and captions, or the video\'s own caption setting', async () => {
+		const burned = await buildExportVideoRequest.call(
+			buildParamsCtx({ videoId: 'vid_abc', resolution: '4k', captions: 'burned' }),
+			{ ...POST_VIDEOS },
+		);
+		expect(burned.url).toBe('/api/v1/videos/vid_abc/exports');
+		expect(burned.body).toEqual({ resolution: '4k', captions: 'burned' });
+		const own = await buildExportVideoRequest.call(buildParamsCtx({ videoId: 'vid_abc' }), { ...POST_VIDEOS });
+		expect(own.body).toEqual({ resolution: '1080p' });
 	});
 });
 
