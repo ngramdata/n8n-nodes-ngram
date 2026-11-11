@@ -1,5 +1,6 @@
 {
   "name": "Save finished ngram videos to Airtable",
+  "active": false,
   "nodes": [
     {
       "parameters": {},
@@ -52,6 +53,5 @@
     }
   },
   "pinData": {},
-  "settings": {},
-  "tags": ["ngram", "video", "airtable"]
+  "settings": {}
 }

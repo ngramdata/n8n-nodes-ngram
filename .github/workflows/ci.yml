@@ -30,6 +30,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check workflows in isolated n8n
+        run: node scripts/check-workflows-in-engine.mjs "$RUNNER_TEMP/ngram-engine"
+
       - name: Test
         run: npm run test
 

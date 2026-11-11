@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-11-11
+
+### Added
+
+- `Export Video`: export a video as an MP4 at a resolution your plan allows,
+  with captions burned in, left out, or as the video has them. Free.
+- `Localize Video`: a version of an ngram video in up to 20 languages, as a
+  new translated video per language or a dub of the audio only that keeps the
+  visuals.
+- `Localize Media`: dub an uploaded video or a YouTube/TikTok link into up to
+  20 languages, with optional lip sync.
+- `Get Localization`: each language's status and its translated video or
+  dubbed file.
+- The localize operations take `Quote Only` (the expected credits, nothing
+  made) and an `Idempotency Key`, so a retry never charges a language twice.
+
 ## [0.2.1] - 2026-10-06
 
 0.2.0 was not published separately; its changes ship in this release.

@@ -13,13 +13,18 @@
           "value": "REPLACE_WITH_REPOSITORY",
           "mode": "name"
         },
-        "events": ["pull_request"]
+        "events": [
+          "pull_request"
+        ]
       },
       "id": "a1f0c0e0-0000-4000-8000-000000000071",
       "name": "GitHub Pull Request Event",
       "type": "n8n-nodes-base.githubTrigger",
       "typeVersion": 1,
-      "position": [260, 300]
+      "position": [
+        260,
+        300
+      ]
     },
     {
       "parameters": {
@@ -27,13 +32,14 @@
           "boolean": [
             {
               "value1": "={{ $json.pull_request?.merged }}",
-              "value2": true
+              "value2": true,
+              "operation": "equal"
             }
           ],
           "string": [
             {
               "value1": "={{ $json.action }}",
-              "operation": "equals",
+              "operation": "equal",
               "value2": "closed"
             }
           ]
@@ -43,7 +49,10 @@
       "name": "Only Merged PRs",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [540, 300]
+      "position": [
+        540,
+        300
+      ]
     },
     {
       "parameters": {
@@ -51,13 +60,17 @@
         "operation": "createFromText",
         "prompt": "=Create a concise changelog video for this merged pull request.\n\nTitle: {{ $json.pull_request?.title }}\nAuthor: {{ $json.pull_request?.user?.login }}\nSummary: {{ $json.pull_request?.body ?? 'No PR description provided' }}\nURL: {{ $json.pull_request?.html_url }}",
         "aspect_ratio": "16:9",
-        "duration": 30
+        "duration": 30,
+        "idempotency_key": "={{ 'github:' + $json.repository.id + ':pr:' + $json.pull_request.number + ':merge:' + $json.pull_request.merge_commit_sha }}"
       },
       "id": "a1f0c0e0-0000-4000-8000-000000000073",
       "name": "Create ngram Video",
       "type": "n8n-nodes-ngram.ngram",
       "typeVersion": 1,
-      "position": [820, 220],
+      "position": [
+        820,
+        220
+      ],
       "credentials": {
         "ngramApi": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
@@ -68,13 +81,29 @@
   ],
   "connections": {
     "GitHub Pull Request Event": {
-      "main": [[{ "node": "Only Merged PRs", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Only Merged PRs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Only Merged PRs": {
-      "main": [[{ "node": "Create ngram Video", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Create ngram Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
   "settings": {},
-  "tags": ["ngram", "video", "github"]
+  "active": false
 }

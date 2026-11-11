@@ -1,5 +1,6 @@
 {
   "name": "Email me when my ngram video is ready",
+  "active": false,
   "nodes": [
     {
       "parameters": {},
@@ -36,6 +37,5 @@
     }
   },
   "pinData": {},
-  "settings": {},
-  "tags": ["ngram", "video", "gmail"]
+  "settings": {}
 }
